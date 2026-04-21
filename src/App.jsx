@@ -1,35 +1,37 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useState } from 'react';
+import Sidebar from './components/Sidebar';
+import BugTracker from './components/BugTracker';
+import ReportBug from './components/ReportBug';
+import History from './components/History';
+import Kanban from './components/Kanban';
+import './App.css';
 
-function App() {
-  const [count, setCount] = useState(0)
+const SECTIONS = {
+  tracker: { title: 'Bug Tracker', subtitle: 'Monitoreá bugs por módulo, filtrá por estado y consultá ETAs a los PMs.' },
+  report: { title: 'Reportar bug', subtitle: 'Creá una nueva card con contexto, evaluación de calidad y búsqueda de duplicados con IA.' },
+  history: { title: 'Historial', subtitle: 'Bugs resueltos en los últimos 7 días.' },
+  kanban: { title: 'Kanban', subtitle: 'Moveé bugs entre columnas para actualizar su estado.' },
+};
+
+export default function App() {
+  const [section, setSection] = useState('tracker');
+  const meta = SECTIONS[section];
 
   return (
-    <>
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <div className="app-shell">
+      <Sidebar active={section} onChange={setSection} />
+      <main className="app-main">
+        <header className="app-header">
+          <h1>{meta.title}</h1>
+          <p className="app-subtitle">{meta.subtitle}</p>
+        </header>
+        <section className="app-content">
+          {section === 'tracker' && <BugTracker />}
+          {section === 'report' && <ReportBug onSaved={() => setSection('tracker')} />}
+          {section === 'history' && <History />}
+          {section === 'kanban' && <Kanban />}
+        </section>
+      </main>
+    </div>
+  );
 }
-
-export default App

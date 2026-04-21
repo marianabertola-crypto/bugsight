@@ -1,0 +1,46 @@
+.eta-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.eta-modal-recipient {
+  display: flex;
+  justify-content: space-between;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+}
+
+.eta-modal-recipient-label {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.eta-modal-recipient-value {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-bold);
+}
+
+.eta-modal-label {
+  font-size: 13px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.eta-modal-textarea {
+  resize: vertical;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  line-height: 1.5;
+  min-height: 120px;
+  background: #fff;
+}
+
+.eta-modal-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
+}
