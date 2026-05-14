@@ -1,103 +1,76 @@
-import PriorityBadge from './PriorityBadge';
-import StatusBadge from './StatusBadge';
-import { getPMForModule } from '../config/modules';
-import './BugCard.css';
+const STATUS_CLASS = {
+  'Parking Lot': 'parking',
+  Backlog: 'backlog',
+  Discovery: 'discovery',
+  'For Development': 'for-dev',
+  Developing: 'developing',
+  Developed: 'developed',
+  Staging: 'staging',
+};
+
+const PRIORITY_CLASS = {
+  Highest: 'highest',
+  High: 'high',
+  Medium: 'medium',
+  Low: 'low',
+  Lowest: 'lowest',
+};
 
 function formatDate(iso) {
   if (!iso) return '—';
-  const d = new Date(iso);
-  return d.toLocaleDateString('es-AR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
 }
 
-export default function BugCard({
-  bug,
-  variant = 'tracker',
-  onRequestETA,
-  onOpenNotes,
-  draggable = false,
-  onDragStart,
-}) {
-  const pendingEtaRequests = bug.etaRequests.filter((r) => !r.answered).length;
-
-  if (variant === 'kanban') {
-    const { pm } = getPMForModule(bug.module);
-    return (
-      <article
-        className="bug-card bug-card-kanban"
-        draggable={draggable}
-        onDragStart={onDragStart}
-      >
-        <div className="bug-card-head">
-          <span className="bug-id">{bug.id}</span>
-          <PriorityBadge priority={bug.priority} />
-        </div>
-        <h4 className="bug-title">{bug.title}</h4>
-        <div className="bug-card-meta">
-          <span className="bug-module">{bug.module}</span>
-          <span className="bug-pm">· {pm}</span>
-        </div>
-      </article>
-    );
-  }
-
-  if (variant === 'history') {
-    return (
-      <article className="bug-card bug-card-history">
-        <div className="bug-card-head">
-          <span className="bug-id">{bug.id}</span>
-          <span className="bug-module-tag">{bug.module}</span>
-          <PriorityBadge priority={bug.priority} />
-        </div>
-        <h4 className="bug-title">{bug.title}</h4>
-        <div className="bug-card-foot">
-          <span className="bug-card-foot-label">Resuelto el</span>
-          <span className="bug-card-foot-value">{formatDate(bug.resolvedAt)}</span>
-        </div>
-      </article>
-    );
-  }
+export default function BugCard({ bug, moduleInfo, onConsultETA, onLoadETA, onDeleteETA, onNotes, onOpen }) {
+  const hasSlack = !!(moduleInfo?.slackId);
 
   return (
-    <article className="bug-card bug-card-tracker">
-      <div className="bug-card-head">
-        <span className="bug-id">{bug.id}</span>
-        <StatusBadge status={bug.status} />
-        <PriorityBadge priority={bug.priority} />
-      </div>
-
-      <h4 className="bug-title">{bug.title}</h4>
-
-      <div className="bug-card-meta">
-        <span>Reportado: {formatDate(bug.reportedAt)}</span>
-        {bug.affectedClients.length > 0 && (
-          <span>· {bug.affectedClients.length} cliente{bug.affectedClients.length > 1 ? 's' : ''}</span>
-        )}
-      </div>
-
-      {pendingEtaRequests > 0 && (
-        <div className="bug-eta-history">
-          ETA consultada {pendingEtaRequests} {pendingEtaRequests === 1 ? 'vez' : 'veces'} sin respuesta
+    <div className="bug-card" onClick={() => onOpen?.(bug)} style={{ cursor: 'pointer' }}>
+      <div className="bug-card-header">
+        <div className="bug-card-meta">
+          <span className="bug-id">{bug.id}</span>
+          <span className={`bug-status status-${STATUS_CLASS[bug.status] || 'parking'}`}>{bug.status}</span>
+          {bug.etaConsultations > 0 && !bug.eta && (
+            <span className="eta-consultations" title="Consultas de ETA enviadas sin respuesta">
+              🔔 ETA ×{bug.etaConsultations}
+            </span>
+          )}
         </div>
-      )}
-
-      <div className="bug-card-actions">
-        {bug.eta ? (
-          <button className="btn btn-ghost" disabled>
-            ETA recibida: {formatDate(bug.eta)}
+        <div className="bug-card-actions">
+          <button
+            className="btn-notes"
+            onClick={(e) => { e.stopPropagation(); onNotes?.(bug); }}
+            title="Ver notas"
+          >
+            📝 Notas {bug.notes?.length > 0 && <span className="notes-count">{bug.notes.length}</span>}
           </button>
-        ) : (
-          <button className="btn btn-primary" onClick={() => onRequestETA(bug)}>
-            Consultar ETA
-          </button>
-        )}
-        <button className="btn btn-secondary" onClick={() => onOpenNotes(bug)}>
-          Notas {bug.notes.length > 0 ? `(${bug.notes.length})` : ''}
-        </button>
+        </div>
       </div>
-    </article>
+
+      <div className="bug-title">{bug.title}</div>
+
+      <div className="bug-card-footer">
+        <div className="bug-footer-left">
+          <span className={`bug-priority prio-${PRIORITY_CLASS[bug.priority]}`}>{bug.priority}</span>
+          <span className="bug-date">🗓 {formatDate(bug.reportedAt)}</span>
+        </div>
+        <div className="bug-footer-right">
+          {bug.eta ? (
+            <>
+              <button className="btn-eta btn-eta--received" disabled>✅ ETA: {formatDate(bug.eta)}</button>
+              <button className="btn-eta btn-eta--pending" onClick={(e) => { e.stopPropagation(); onLoadETA?.(bug); }}>Editar ETA</button>
+            </>
+          ) : (
+            <>
+              <button className="btn-eta btn-eta--pending" onClick={(e) => { e.stopPropagation(); onLoadETA?.(bug); }}>Cargar ETA</button>
+              {hasSlack && (
+                <button className="btn-eta btn-eta--pending" onClick={(e) => { e.stopPropagation(); onConsultETA?.(bug); }}>Consultar ETA</button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

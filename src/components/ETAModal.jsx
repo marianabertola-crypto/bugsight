@@ -1,73 +1,53 @@
 import { useState } from 'react';
-import Modal from './Modal';
-import { getPMForModule } from '../config/modules';
-import './ETAModal.css';
 
-function buildDefaultMessage(bug, pm) {
-  return `Hola ${pm.pm}, ¿tenés ETA para el bug ${bug.id} - "${bug.title}"? Está afectando a ${bug.affectedClients.join(', ') || 'nuestros clientes'}. Prioridad: ${bug.priority}. ¡Gracias!`;
-}
+export default function ETAModal({ bug, onClose, onSave, onDelete }) {
+  const [date, setDate] = useState(bug.eta || '');
+  const [saving, setSaving] = useState(false);
 
-export default function ETAModal({ bug, onClose, onConfirm }) {
-  const pm = getPMForModule(bug.module);
-  const [message, setMessage] = useState(buildDefaultMessage(bug, pm));
-  const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
+  async function handleSave() {
+    if (!date) return;
+    setSaving(true);
+    try {
+      await onSave(bug.id, date);
+      onClose();
+    } catch (err) {
+      console.error('Error guardando ETA:', err);
+    } finally {
+      setSaving(false);
+    }
+  }
 
-  async function handleConfirm() {
-    setSending(true);
+  async function handleDelete() {
+    await onDelete(bug.id);
+  }
 
-    // TODO(API) — NOT EXECUTED IN THIS VERSION.
-    // This version does NOT send anything to Slack. The timeout below just
-    // simulates network latency so the UX feels real during the demo.
-    // When wiring the real integration:
-    //   POST https://slack.com/api/chat.postMessage
-    //   Headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}` } (SLACK_BOT_TOKEN starts with "xoxb-")
-    //   Body: { channel: pm.slack, text: message }
-    //   The Slack handle for the responsible PM lives in MODULE_PMS[bug.module].slack.
-    //   Handle `response.ok === false` by surfacing the error to the support agent.
-    await new Promise((resolve) => setTimeout(resolve, 600));
-
-    onConfirm(bug.id);
-    setSending(false);
-    setSent(true);
-    setTimeout(onClose, 900);
+  function onBackdropClick(e) {
+    if (e.target === e.currentTarget) onClose();
   }
 
   return (
-    <Modal
-      title={`Consultar ETA a ${pm.pm}`}
-      onClose={onClose}
-      footer={
-        <>
-          <button className="btn btn-secondary" onClick={onClose} disabled={sending}>
-            Cancelar
-          </button>
-          <button
-            className="btn btn-primary"
-            onClick={handleConfirm}
-            disabled={sending || sent || !message.trim()}
-          >
-            {sent ? 'Enviado ✓' : sending ? 'Enviando…' : 'Enviar por Slack'}
-          </button>
-        </>
-      }
-    >
-      <div className="eta-modal-body">
-        <div className="eta-modal-recipient">
-          <span className="eta-modal-recipient-label">Canal destino</span>
-          <span className="eta-modal-recipient-value">{pm.slack || 'Sin canal asignado'}</span>
-        </div>
-        <label className="eta-modal-label" htmlFor="eta-message">
-          Mensaje (editable)
-        </label>
-        <textarea
-          id="eta-message"
-          className="eta-modal-textarea"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          rows={6}
+    <div className="eta-modal-backdrop" onClick={onBackdropClick}>
+      <div className="eta-modal">
+        <p className="eta-modal-title">{bug.eta ? 'Editar ETA' : 'Cargar ETA'}</p>
+        <p className="eta-modal-bug-id">{bug.id} — {bug.title.length > 60 ? bug.title.slice(0, 60) + '…' : bug.title}</p>
+        <input
+          type="date"
+          className="eta-modal-input"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
         />
+        <div className="eta-modal-actions">
+          {bug.eta && (
+            <button className="eta-btn eta-btn--secondary" style={{ color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }} onClick={handleDelete}>
+              Eliminar ETA
+            </button>
+          )}
+          <button className="eta-btn eta-btn--secondary" onClick={onClose}>Cancelar</button>
+          <button className="eta-btn eta-btn--primary" onClick={handleSave} disabled={!date || saving}>
+            {saving ? 'Guardando…' : 'Guardar'}
+          </button>
+        </div>
       </div>
-    </Modal>
+    </div>
   );
 }
