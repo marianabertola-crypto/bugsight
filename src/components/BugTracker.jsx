@@ -1,197 +1,179 @@
-import { useMemo, useState } from 'react';
-import { useBugs } from '../context/BugsContext';
-import { MODULES, getPMForModule } from '../config/modules';
+import { useState, useMemo } from 'react';
+import { MODULES } from '../config/modules';
+import FilterBar from './FilterBar';
 import BugCard from './BugCard';
-import MetricsBar from './MetricsBar';
 import ETAModal from './ETAModal';
 import NotesModal from './NotesModal';
-import './BugTracker.css';
+import IssueModal from './IssueModal';
 
-const FILTER_CHIPS = [
-  { key: 'all', label: 'Todos' },
-  { key: 'no-eta', label: 'Sin ETA' },
-  { key: 'today', label: 'Hoy' },
-  { key: 'Parking Lot', label: 'Parking Lot' },
-  { key: 'Backlog', label: 'Backlog' },
-  { key: 'Developing', label: 'Developing' },
-  { key: 'Highest', label: 'Highest' },
-  { key: 'High', label: 'High' },
-  { key: 'Medium', label: 'Medium' },
-];
+const STATUSES = ['Parking Lot', 'Backlog', 'Discovery', 'For Development', 'Developing', 'Developed', 'Staging'];
+const PRIORITIES = ['Highest', 'High', 'Medium', 'Low', 'Lowest'];
+const PRIORITY_ORDER = { Highest: 0, High: 1, Medium: 2, Low: 3, Lowest: 4 };
+const PAGE_SIZE = 15;
 
-function isToday(iso) {
-  const d = new Date(iso);
-  const now = new Date();
-  return (
-    d.getUTCFullYear() === now.getUTCFullYear() &&
-    d.getUTCMonth() === now.getUTCMonth() &&
-    d.getUTCDate() === now.getUTCDate()
-  );
+function formatDate(iso) {
+  if (!iso) return '—';
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
 }
 
-export default function BugTracker() {
-  const { bugs, logETARequest, addNote } = useBugs();
-  const [module, setModule] = useState('all');
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('all');
-  const [etaBug, setEtaBug] = useState(null);
-  const [notesBug, setNotesBug] = useState(null);
+export default function BugTracker({
+  bugs,
+  loading,
+  filters,
+  onFiltersChange,
+  sortBy,
+  onSortChange,
+  onRefresh,
+  refreshing,
+  selectedBug,
+  etaBug,
+  notesBug,
+  onOpenBug,
+  onCloseModal,
+  onOpenETA,
+  onCloseETA,
+  onSaveETA,
+  onDeleteETA,
+  onOpenNotes,
+  onCloseNotes,
+  onAddNote,
+  onDeleteNote,
+  onEditNote,
+  user,
+}) {
+  const [expanded, setExpanded] = useState({});
 
-  const filteredBugs = useMemo(() => {
-    return bugs.filter((b) => {
-      if (b.status === 'Resuelto') return false;
-      if (module !== 'all' && b.module !== module) return false;
-      if (
-        search &&
-        !b.title.toLowerCase().includes(search.toLowerCase()) &&
-        !b.id.toLowerCase().includes(search.toLowerCase())
-      )
-        return false;
-
-      switch (filter) {
-        case 'all':
-          return true;
-        case 'no-eta':
-          return !b.eta;
-        case 'today':
-          return isToday(b.reportedAt);
-        case 'Parking Lot':
-        case 'Backlog':
-        case 'Developing':
-          return b.status === filter;
-        case 'Highest':
-        case 'High':
-        case 'Medium':
-          return b.priority === filter;
-        default:
-          return true;
-      }
-    });
-  }, [bugs, module, search, filter]);
-
-  const metrics = useMemo(
-    () => [
-      { label: 'Bugs abiertos', value: filteredBugs.length },
-      {
-        label: 'Sin ETA',
-        value: filteredBugs.filter((b) => !b.eta).length,
-      },
-      {
-        label: 'Prioridad Highest',
-        value: filteredBugs.filter((b) => b.priority === 'Highest').length,
-      },
-      {
-        label: 'Reportados hoy',
-        value: filteredBugs.filter((b) => isToday(b.reportedAt)).length,
-      },
-    ],
-    [filteredBugs]
-  );
-
+  // Group by miniApps (a bug can appear in multiple groups)
   const grouped = useMemo(() => {
-    const map = new Map();
-    filteredBugs.forEach((bug) => {
-      if (!map.has(bug.module)) map.set(bug.module, []);
-      map.get(bug.module).push(bug);
-    });
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [filteredBugs]);
+    const map = {};
+    for (const bug of bugs) {
+      const keys = bug.miniApps?.length ? bug.miniApps : [bug.module];
+      for (const key of keys) {
+        if (!map[key]) map[key] = [];
+        map[key].push(bug);
+      }
+    }
 
-  function handleConfirmETA(bugId) {
-    logETARequest(bugId);
+    for (const key of Object.keys(map)) {
+      const list = map[key];
+      if (sortBy === 'priority') {
+        map[key] = [...list].sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 99) - (PRIORITY_ORDER[b.priority] ?? 99));
+      } else if (sortBy === 'date-desc') {
+        map[key] = [...list].sort((a, b) => b.reportedAt.localeCompare(a.reportedAt));
+      } else if (sortBy === 'date-asc') {
+        map[key] = [...list].sort((a, b) => a.reportedAt.localeCompare(b.reportedAt));
+      }
+    }
+
+    return Object.keys(map).sort((a, b) => a.localeCompare(b)).map((key) => ({ module: key, bugs: map[key] }));
+  }, [bugs, sortBy]);
+
+  if (loading) {
+    return (
+      <div className="app-loading">
+        <div className="app-loading-spinner" />
+        <p>Cargando bugs desde Jira…</p>
+      </div>
+    );
   }
 
-  // Bugs panel after filters are applied, grouped by module.
   return (
-    <div className="tracker">
-      <div className="tracker-toolbar">
-        <div className="toolbar-row">
-          <select
-            className="input"
-            value={module}
-            onChange={(e) => setModule(e.target.value)}
-          >
-            <option value="all">Todos los módulos</option>
-            {MODULES.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
+    <>
+      <FilterBar
+        filters={filters}
+        onChange={onFiltersChange}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
+        statuses={STATUSES}
+        priorities={PRIORITIES}
+      />
+
+      <div className="app-bugs-toolbar">
+        <span className="app-bugs-count">{bugs.length} bug{bugs.length !== 1 ? 's' : ''}</span>
+        <div className="app-sort">
+          <span className="app-sort-label">Ordenar:</span>
+          <select className="app-sort-select" value={sortBy} onChange={(e) => onSortChange(e.target.value)}>
+            <option value="priority">Prioridad</option>
+            <option value="date-desc">Fecha (más reciente)</option>
+            <option value="date-asc">Fecha (más antiguo)</option>
           </select>
-          <input
-            className="input"
-            placeholder="Buscar por título o ID…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="toolbar-chips">
-          {FILTER_CHIPS.map((chip) => (
-            <button
-              key={chip.key}
-              className={`chip ${filter === chip.key ? 'chip-active' : ''}`}
-              onClick={() => setFilter(chip.key)}
-            >
-              {chip.label}
-            </button>
-          ))}
         </div>
       </div>
 
-      <MetricsBar metrics={metrics} />
-
       {grouped.length === 0 ? (
-        <div className="tracker-empty">
-          No hay bugs que coincidan con los filtros seleccionados.
+        <div className="bug-list-empty">
+          <span className="bug-list-empty-icon">🔍</span>
+          <p>No se encontraron bugs con los filtros aplicados.</p>
         </div>
       ) : (
-        <div className="tracker-groups">
-          {grouped.map(([mod, items]) => {
-            const pm = getPMForModule(mod);
-            return (
-              <section key={mod} className="tracker-group">
-                <header className="tracker-group-header">
-                  <div>
-                    <h2 className="tracker-group-title">{mod}</h2>
-                    <p className="tracker-group-pm">
-                      PM: <strong>{pm.pm}</strong> {pm.slack && <span>· {pm.slack}</span>}
-                    </p>
-                  </div>
-                  <span className="tracker-group-count">{items.length} bug{items.length !== 1 ? 's' : ''}</span>
-                </header>
+        <div className="bug-list">
+          {grouped.map(({ module, bugs: moduleBugs }) => {
+            const moduleInfo = MODULES[module] || { pm: null, slackId: null };
+            const isExpanded = expanded[module];
+            const visible = isExpanded ? moduleBugs : moduleBugs.slice(0, PAGE_SIZE);
+            const remaining = moduleBugs.length - PAGE_SIZE;
 
-                <div className="tracker-group-grid">
-                  {items.map((bug) => (
+            return (
+              <div key={module} className="bug-module-group">
+                <div className="bug-module-header">
+                  <div className="bug-module-title">
+                    <span className="bug-module-name">{module}</span>
+                    <span className="bug-module-count">{moduleBugs.length} bug{moduleBugs.length !== 1 ? 's' : ''}</span>
+                    {moduleInfo.pm && <span className="bug-module-pm">PM: {moduleInfo.pm}</span>}
+                  </div>
+                </div>
+                <div className="bug-module-cards">
+                  {visible.map((bug) => (
                     <BugCard
                       key={bug.id}
                       bug={bug}
-                      variant="tracker"
-                      onRequestETA={setEtaBug}
-                      onOpenNotes={setNotesBug}
+                      moduleInfo={moduleInfo}
+                      onConsultETA={(b) => {
+                        // increment consultation count
+                        onOpenETA(b);
+                      }}
+                      onLoadETA={onOpenETA}
+                      onDeleteETA={onDeleteETA}
+                      onNotes={onOpenNotes}
+                      onOpen={onOpenBug}
                     />
                   ))}
+                  {!isExpanded && remaining > 0 && (
+                    <button className="bug-module-expand" onClick={() => setExpanded((p) => ({ ...p, [module]: true }))}>
+                      Ver {remaining} más…
+                    </button>
+                  )}
                 </div>
-              </section>
+              </div>
             );
           })}
         </div>
       )}
 
+      {selectedBug && (
+        <IssueModal issueKey={selectedBug.id} onClose={onCloseModal} />
+      )}
+
       {etaBug && (
         <ETAModal
           bug={etaBug}
-          onClose={() => setEtaBug(null)}
-          onConfirm={handleConfirmETA}
+          onClose={onCloseETA}
+          onSave={onSaveETA}
+          onDelete={onDeleteETA}
         />
       )}
 
       {notesBug && (
         <NotesModal
-          bug={bugs.find((b) => b.id === notesBug.id) || notesBug}
-          onClose={() => setNotesBug(null)}
-          onAddNote={addNote}
+          bug={notesBug}
+          user={user}
+          onClose={onCloseNotes}
+          onAddNote={onAddNote}
+          onDeleteNote={onDeleteNote}
+          onEditNote={onEditNote}
         />
       )}
-    </div>
+    </>
   );
 }
