@@ -86,6 +86,25 @@
   box-shadow: var(--shadow-md);
 }
 
+.login-dev-btn {
+  margin-top: 12px;
+  width: 100%;
+  padding: 10px;
+  border-radius: var(--radius);
+  border: 1.5px dashed #4b6bfb66;
+  background: transparent;
+  color: #8b9cf0;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.login-dev-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(75, 107, 251, 0.06);
+}
+
 .callback-page {
   min-height: 100vh;
   display: flex;

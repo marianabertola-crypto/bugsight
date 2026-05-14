@@ -1,10 +1,26 @@
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { generateVerifier, createChallenge, PKCE_CODE_VERIFIER } from '../utils/pkce';
 import './Login.css';
 
 const JANUS_URL = 'https://api-prod.humand.co/api/v1/janus';
 const CLIENT_ID = 'hu_staff_3EL7DWGB9VsTIGkcarkYfhrXUwXiemjShyNjAKwKnoM';
 
+function makeDevToken() {
+  const header = btoa(JSON.stringify({ alg: 'none', typ: 'JWT' }));
+  const payload = btoa(JSON.stringify({ name: 'Dev User', email: 'dev@humand.co', sub: 'dev' }));
+  return `${header}.${payload}.dev`;
+}
+
 export default function Login() {
+  const { setToken } = useAuth();
+  const navigate = useNavigate();
+
+  function handleDevLogin() {
+    setToken(makeDevToken());
+    navigate('/', { replace: true });
+  }
+
   async function handleLogin() {
     const verifier = generateVerifier();
     const challenge = await createChallenge(verifier);
@@ -40,6 +56,12 @@ export default function Login() {
           </svg>
           Continuar con Google
         </button>
+
+        {import.meta.env.DEV && (
+          <button className="login-dev-btn" onClick={handleDevLogin}>
+            ⚡ Dev login (solo local)
+          </button>
+        )}
       </div>
     </div>
   );
