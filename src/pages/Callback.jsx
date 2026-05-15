@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { PKCE_CODE_VERIFIER } from '../utils/pkce';
 import './Login.css';
 
-const CLIENT_ID = 'hu_staff_3EL7DWGB9VsTIGkcarkYfhrXUwXiemjShyNjAKwKnoM';
+const CLIENT_ID = import.meta.env.VITE_CLIENT_ID;
 
 export default function Callback() {
   const [searchParams] = useSearchParams();

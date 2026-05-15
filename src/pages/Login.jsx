@@ -3,8 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { generateVerifier, createChallenge, PKCE_CODE_VERIFIER } from '../utils/pkce';
 import './Login.css';
 
-const JANUS_URL = 'https://api-prod.humand.co/api/v1/janus';
-const CLIENT_ID = 'hu_staff_3EL7DWGB9VsTIGkcarkYfhrXUwXiemjShyNjAKwKnoM';
+const JANUS_URL = import.meta.env.VITE_JANUS_URL;
+const CLIENT_ID = import.meta.env.VITE_CLIENT_ID;
 
 function makeDevToken() {
   const header = btoa(JSON.stringify({ alg: 'none', typ: 'JWT' }));
