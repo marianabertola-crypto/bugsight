@@ -8,6 +8,8 @@ const STATUS_MAP = {
   DEVELOPING: 'Developing',
   Developed: 'Developed',
   STAGING: 'Staging',
+  CLOSED: 'Closed',
+  RELEASED: 'Released',
 };
 
 const MODULE_ALIASES = {
@@ -158,7 +160,7 @@ async function fetchAllPages(jql, fields) {
 
 export async function fetchActiveBugs() {
   const jql =
-    'issuetype = Bug AND project != HUREP AND created >= "2025-04-01" AND status NOT IN (CLOSED, RELEASED) ORDER BY created ASC';
+    'issuetype = Bug AND project != HUREP AND created >= "2025-04-01" ORDER BY created ASC';
   const fields =
     'summary,status,priority,created,fixVersions,customfield_10071,customfield_10046,customfield_10109';
 
