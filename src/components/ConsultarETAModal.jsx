@@ -1,9 +1,11 @@
 import { useState } from 'react';
 
-const CHANNEL = 'C08TTLB49GT'; // #prueba-product-etas channel ID
+const CHANNEL = 'C08TTLB49GT'; // #prueba-product-etas
 
 function buildMessage(bug, moduleInfo) {
-  const pmMention = moduleInfo?.slackId ? `<@${moduleInfo.slackId}>` : (moduleInfo?.pm || 'PM del módulo');
+  const pmMention = moduleInfo?.slackId
+    ? `<@${moduleInfo.slackId}>`
+    : (moduleInfo?.pm || 'PM del módulo');
   return `🔔 *Consulta de ETA* — ${bug.id}\n\nHola ${pmMention}! Te consulto sobre el bug: *${bug.title}*\n\n¿Tenés estimación de cuándo podría estar resuelto? Gracias! 🙏`;
 }
 
@@ -25,7 +27,7 @@ export default function ConsultarETAModal({ bug, moduleInfo, onClose }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error enviando mensaje');
       setSent(true);
-      setTimeout(onClose, 1500);
+      setTimeout(onClose, 1800);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -34,33 +36,59 @@ export default function ConsultarETAModal({ bug, moduleInfo, onClose }) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
-        <div className="modal-header">
-          <h2 className="modal-title">💬 Consultar ETA por Slack</h2>
-          <button className="modal-close" onClick={onClose}>×</button>
+    <div className="eta-modal-backdrop" onClick={onClose}>
+      <div
+        className="eta-modal"
+        style={{ maxWidth: 520 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div className="eta-modal-title">💬 Consultar ETA por Slack</div>
+            <div className="eta-modal-bug-id">{bug.id} · {bug.module || '—'}</div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--color-text-secondary)', lineHeight: 1 }}
+          >×</button>
         </div>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', margin: 0 }}>
-            Se enviará al canal <strong>#prueba-product-etas</strong>. Podés editar el mensaje antes de enviarlo.
-          </p>
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            rows={6}
-            style={{
-              width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--color-border)', background: 'var(--color-bg)',
-              color: 'var(--color-text)', fontFamily: 'inherit', fontSize: 13,
-              resize: 'vertical', lineHeight: 1.5,
-            }}
-          />
-          {error && <p style={{ color: 'var(--color-danger)', fontSize: 13, margin: 0 }}>{error}</p>}
-          {sent && <p style={{ color: 'var(--color-success)', fontSize: 13, margin: 0 }}>✅ Mensaje enviado!</p>}
-        </div>
-        <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 20px' }}>
-          <button className="btn-secondary" onClick={onClose} disabled={sending}>Cancelar</button>
-          <button className="btn-primary" onClick={handleSend} disabled={sending || sent}>
+
+        <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', margin: 0 }}>
+          Se enviará al canal <strong>#prueba-product-etas</strong>.
+          {moduleInfo?.pm && <> Mencionando a <strong>{moduleInfo.pm}</strong>.</>}
+          {' '}Podés editar antes de enviar.
+        </p>
+
+        <textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          rows={7}
+          style={{
+            width: '100%', padding: '10px 12px',
+            borderRadius: 'var(--radius-sm)',
+            border: '1.5px solid var(--color-border)',
+            background: 'var(--color-bg)',
+            color: 'var(--color-text)',
+            fontFamily: 'inherit', fontSize: 13,
+            resize: 'vertical', lineHeight: 1.6,
+            outline: 'none',
+          }}
+          onFocus={(e) => { e.target.style.borderColor = 'var(--color-primary)'; }}
+          onBlur={(e) => { e.target.style.borderColor = 'var(--color-border)'; }}
+        />
+
+        {error && (
+          <p style={{ color: 'var(--color-danger)', fontSize: 13, margin: 0 }}>⚠️ {error}</p>
+        )}
+        {sent && (
+          <p style={{ color: 'var(--color-success)', fontSize: 13, margin: 0 }}>✅ Mensaje enviado a Slack!</p>
+        )}
+
+        <div className="eta-modal-actions">
+          <button className="eta-btn eta-btn--secondary" onClick={onClose} disabled={sending}>
+            Cancelar
+          </button>
+          <button className="eta-btn eta-btn--primary" onClick={handleSend} disabled={sending || sent}>
             {sending ? 'Enviando…' : 'Enviar a Slack'}
           </button>
         </div>
