@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-const CHANNEL = 'C08TTLB49GT'; // #prueba-product-etas
+const CHANNEL = '#produc-etas-test';
 
 function buildMessage(bug, moduleInfo) {
   const pmMention = moduleInfo?.slackId
@@ -54,7 +54,7 @@ export default function ConsultarETAModal({ bug, moduleInfo, onClose }) {
         </div>
 
         <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', margin: 0 }}>
-          Se enviará al canal <strong>#prueba-product-etas</strong>.
+          Se enviará al canal <strong>#produc-etas-test</strong>.
           {moduleInfo?.pm && <> Mencionando a <strong>{moduleInfo.pm}</strong>.</>}
           {' '}Podés editar antes de enviar.
         </p>
