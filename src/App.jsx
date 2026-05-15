@@ -68,6 +68,7 @@ export function AppLayout() {
   const [bugs, setBugs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState(null);
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [selectedBug, setSelectedBug] = useState(null);
   const [etaBug, setEtaBug] = useState(null);
@@ -95,6 +96,7 @@ export function AppLayout() {
       );
     } catch (err) {
       console.error('Error cargando datos:', err);
+      setLoadError(err.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -233,6 +235,12 @@ export function AppLayout() {
               </button>
             </div>
             <div className="app-content">
+              {loadError && (
+                <div style={{ background: '#fff0f0', border: '1px solid var(--color-danger)', borderRadius: 'var(--radius)', padding: '12px 16px', color: 'var(--color-danger)', fontSize: 13 }}>
+                  ⚠️ Error cargando bugs desde Jira: <strong>{loadError}</strong>
+                  <button onClick={() => { setLoadError(null); loadData(true); }} style={{ marginLeft: 12, color: 'var(--color-danger)', textDecoration: 'underline', cursor: 'pointer' }}>Reintentar</button>
+                </div>
+              )}
               <BugTrackerMetrics bugs={bugs} loading={loading} />
               <BugTracker
                 bugs={filteredBugs}

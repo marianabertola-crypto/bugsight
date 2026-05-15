@@ -114,35 +114,37 @@ export function mapJiraIssue(issue) {
 }
 
 async function fetchAllPages(jql, fields) {
-  const bugs = [];
+  const allIssues = [];
   const seen = new Set();
   const maxResults = 100;
-  let startAt = 0;
-  let total = Infinity;
+  let nextPageToken = undefined;
 
-  while (startAt < total) {
-    const params = new URLSearchParams({ jql, fields, maxResults, startAt });
+  for (;;) {
+    const params = new URLSearchParams({ jql, fields, maxResults });
+    if (nextPageToken) params.set('nextPageToken', nextPageToken);
+
     const res = await fetch(`/api/jira-search?${params}`);
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`Jira API error: ${res.status} - ${text.slice(0, 200)}`);
     }
+
     const data = await res.json();
     const issues = data.issues ?? [];
-    total = data.total ?? 0;
 
     for (const issue of issues) {
       if (!seen.has(issue.key)) {
         seen.add(issue.key);
-        bugs.push(issue);
+        allIssues.push(issue);
       }
     }
 
-    startAt += issues.length;
-    if (issues.length === 0) break;
+    // Stop when no more pages
+    if (!data.nextPageToken || issues.length < maxResults) break;
+    nextPageToken = data.nextPageToken;
   }
 
-  return bugs;
+  return allIssues;
 }
 
 export async function fetchActiveBugs() {
