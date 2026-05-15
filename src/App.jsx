@@ -245,7 +245,7 @@ export function AppLayout() {
                   <button onClick={() => { setLoadError(null); loadData(true); }} style={{ marginLeft: 12, color: 'var(--color-danger)', textDecoration: 'underline', cursor: 'pointer' }}>Reintentar</button>
                 </div>
               )}
-              <BugTrackerMetrics bugs={bugs} loading={loading} />
+              <BugTrackerMetrics bugs={filteredBugs} loading={loading} />
               <BugTracker
                 bugs={filteredBugs}
                 loading={loading}
