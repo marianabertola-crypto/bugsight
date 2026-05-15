@@ -13,7 +13,7 @@ export default function Sidebar({ activeSection, onSectionChange, user, onLogout
     <aside className="sidebar">
       <div className="sidebar-logo">
         <div className="sidebar-logo-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{display:'block'}}>
             <ellipse cx="12" cy="13" rx="5" ry="6" />
             <circle cx="12" cy="6" r="2" />
             <path d="M7 9l-3-2M17 9l3-2" />
