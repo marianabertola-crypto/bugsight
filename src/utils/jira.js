@@ -114,9 +114,11 @@ export function mapJiraIssue(issue) {
 }
 
 export async function fetchActiveBugs() {
+  const today = new Date().toISOString().split('T')[0]; // yyyy-mm-dd UTC
   const jql =
-    'issuetype = Bug AND project != HUREP AND created >= "2025-04-01" AND status NOT IN (CLOSED, RELEASED) ORDER BY created DESC';
+    `issuetype = Bug AND project != HUREP AND created >= "2025-04-01" AND created <= "${today}" AND status NOT IN (CLOSED, RELEASED) ORDER BY created DESC`;
   const bugs = [];
+  const seen = new Set();
   let nextPageToken;
 
   for (;;) {
@@ -136,7 +138,12 @@ export async function fetchActiveBugs() {
 
     const data = await res.json();
     const issues = data.issues ?? [];
-    bugs.push(...issues.map(mapJiraIssue));
+    for (const issue of issues) {
+      if (!seen.has(issue.key)) {
+        seen.add(issue.key);
+        bugs.push(mapJiraIssue(issue));
+      }
+    }
 
     if (!data.nextPageToken || issues.length === 0) break;
     nextPageToken = data.nextPageToken;
