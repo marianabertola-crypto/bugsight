@@ -89,6 +89,11 @@ function extractEtaFromFixVersions(fixVersions) {
   return null;
 }
 
+function toLocalDate(isoString) {
+  const d = new Date(isoString);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export function mapJiraIssue(issue) {
   const fields = issue.fields;
   const status = STATUS_MAP[fields.status.name] || fields.status.name;
@@ -110,7 +115,8 @@ export function mapJiraIssue(issue) {
     affectedClientsSize: fields.customfield_10109?.value || null,
     eta: extractEtaFromFixVersions(fields.fixVersions),
     etaConsultations: 0,
-    reportedAt: fields.created.split('T')[0],
+    reportedAt: toLocalDate(fields.created),
+    resolvedAt: fields.resolutiondate ? toLocalDate(fields.resolutiondate) : null,
     notes: [],
   };
 }
@@ -187,8 +193,8 @@ export async function fetchClosedBugs() {
       module: extractModuleFromCustomField(miniAppsField) || extractModuleFromTitle(f.summary),
       miniApps,
       affectedClients: Array.isArray(f.customfield_10046) ? f.customfield_10046.filter(Boolean) : [],
-      reportedAt: f.created.split('T')[0],
-      resolvedAt: f.resolutiondate ? f.resolutiondate.split('T')[0] : null,
+      reportedAt: toLocalDate(f.created),
+      resolvedAt: f.resolutiondate ? toLocalDate(f.resolutiondate) : null,
     };
   });
 }

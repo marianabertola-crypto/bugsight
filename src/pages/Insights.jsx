@@ -7,22 +7,22 @@ import './Insights.css';
 
 function today() {
   const d = new Date();
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function daysAgo(n) {
   const d = new Date();
-  d.setUTCDate(d.getUTCDate() - n);
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+  d.setDate(d.getDate() - n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function firstOfMonth() {
   const d = new Date();
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-01`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
 }
 
 function dateToISO(d) {
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function dateRange(from, to) {
@@ -590,7 +590,18 @@ export default function Insights({ bugs, onRefresh, refreshing }) {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
 
-  const allBugs = useMemo(() => [...bugs, ...closedBugs], [bugs, closedBugs]);
+  const allBugs = useMemo(() => {
+    const map = new Map();
+    for (const b of bugs) map.set(b.id, b);
+    for (const b of closedBugs) {
+      if (!map.has(b.id)) {
+        map.set(b.id, b);
+      } else if (b.resolvedAt) {
+        map.set(b.id, { ...map.get(b.id), resolvedAt: b.resolvedAt });
+      }
+    }
+    return [...map.values()];
+  }, [bugs, closedBugs]);
 
   async function fetchClosed(forceRefresh = false) {
     if (forceRefresh) {
