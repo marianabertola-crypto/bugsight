@@ -2,11 +2,14 @@ import { useState } from 'react';
 
 const CHANNEL = '#produc-etas-test';
 
+const JIRA_BASE = 'https://humand.atlassian.net/browse';
+
 function buildMessage(bug, moduleInfo) {
   const pmMention = moduleInfo?.slackId
     ? `<@${moduleInfo.slackId}>`
     : (moduleInfo?.pm || 'PM del módulo');
-  return `🔔 *Consulta de ETA* — ${bug.id}\n\nHola ${pmMention}! Te consulto sobre el bug: *${bug.title}*\n\n¿Tenés estimación de cuándo podría estar resuelto? Gracias! 🙏`;
+  const link = `<${JIRA_BASE}/${bug.id}|${bug.title}>`;
+  return `🔔 *Consulta de ETA* — ${link}\n\nHola ${pmMention}! Te consulto sobre el bug: *${bug.title}* (${bug.id})\n\n¿Tenés estimación de cuándo podría estar resuelto? Gracias! 🙏`;
 }
 
 export default function ConsultarETAModal({ bug, moduleInfo, onClose }) {

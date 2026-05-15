@@ -23,9 +23,14 @@ function todayUTC() {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
 }
 
+function formatTodayLabel() {
+  const d = new Date();
+  return `Reportados hoy (${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')})`;
+}
+
 function BugTrackerMetrics({ bugs, loading }) {
   const total = bugs.length;
-  const critical = bugs.filter((b) => b.priority === 'critical' || b.priority === 'high').length;
+  const critical = bugs.filter((b) => b.priority === 'Highest' || b.priority === 'High').length;
   const sinEta = bugs.filter((b) => !b.eta).length;
   const hoy = bugs.filter((b) => b.reportedAt === todayUTC()).length;
 
@@ -33,7 +38,7 @@ function BugTrackerMetrics({ bugs, loading }) {
     { label: 'Bugs activos', value: total, icon: '🐛', color: 'var(--color-primary)' },
     { label: 'Críticos / Alta prioridad', value: critical, icon: '🔴', color: 'var(--color-danger)' },
     { label: 'Sin ETA', value: sinEta, icon: '⏳', color: 'var(--color-warning)' },
-    { label: 'Reportados hoy', value: hoy, icon: '📅', color: 'var(--color-success)' },
+    { label: formatTodayLabel(), value: hoy, icon: '📅', color: 'var(--color-success)' },
   ];
 
   return (
@@ -96,7 +101,11 @@ export function AppLayout() {
     }
   }
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+    const interval = setInterval(() => loadData(true), 5 * 60 * 1000); // auto-refresh every 5 min
+    return () => clearInterval(interval);
+  }, []);
 
   // Real-time notes via Supabase
   useEffect(() => {
