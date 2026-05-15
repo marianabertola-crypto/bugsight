@@ -7,10 +7,15 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Vercel auto-parses urlencoded bodies into objects — convert back to string
+    const bodyStr = typeof req.body === 'string'
+      ? req.body
+      : new URLSearchParams(req.body).toString();
+
     const janusRes = await fetch(`${JANUS_URL}/oauth2/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: req.body,
+      body: bodyStr,
     });
 
     const text = await janusRes.text();

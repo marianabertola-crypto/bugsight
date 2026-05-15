@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { generateVerifier, createChallenge, PKCE_CODE_VERIFIER } from '../utils/pkce';
@@ -15,6 +16,8 @@ function makeDevToken() {
 export default function Login() {
   const { setToken } = useAuth();
   const navigate = useNavigate();
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   function handleDevLogin() {
     setToken(makeDevToken());
@@ -22,20 +25,30 @@ export default function Login() {
   }
 
   async function handleLogin() {
-    const verifier = generateVerifier();
-    const challenge = await createChallenge(verifier);
-    sessionStorage.setItem(PKCE_CODE_VERIFIER, verifier);
+    setError(null);
+    setLoading(true);
+    try {
+      if (!JANUS_URL || !CLIENT_ID) {
+        throw new Error('Configuración de autenticación no disponible. Contactá al administrador.');
+      }
+      const verifier = generateVerifier();
+      const challenge = await createChallenge(verifier);
+      sessionStorage.setItem(PKCE_CODE_VERIFIER, verifier);
 
-    const redirectUri = `${window.location.origin}/callback`;
-    const params = new URLSearchParams({
-      response_type: 'code',
-      client_id: CLIENT_ID,
-      redirect_uri: redirectUri,
-      code_challenge: challenge,
-      code_challenge_method: 'S256',
-    });
+      const redirectUri = `${window.location.origin}/callback`;
+      const params = new URLSearchParams({
+        response_type: 'code',
+        client_id: CLIENT_ID,
+        redirect_uri: redirectUri,
+        code_challenge: challenge,
+        code_challenge_method: 'S256',
+      });
 
-    window.location.href = `${JANUS_URL}/oauth2/authorize?${params.toString()}&continue`;
+      window.location.href = `${JANUS_URL}/oauth2/authorize?${params.toString()}&continue`;
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+    }
   }
 
   return (
@@ -47,7 +60,12 @@ export default function Login() {
         </div>
         <h1 className="login-title">Bienvenido</h1>
         <p className="login-subtitle">Ingresá con tu cuenta de Humand para continuar</p>
-        <button className="login-google-btn" onClick={handleLogin}>
+        {error && (
+          <p style={{ color: 'var(--color-danger)', fontSize: 13, textAlign: 'center', marginBottom: 12 }}>
+            {error}
+          </p>
+        )}
+        <button className="login-google-btn" onClick={handleLogin} disabled={loading}>
           <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
             <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4" />
             <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853" />
