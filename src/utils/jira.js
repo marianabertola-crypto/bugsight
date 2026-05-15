@@ -118,8 +118,10 @@ async function fetchAllPages(jql, fields) {
   const seen = new Set();
   const maxResults = 100;
   let nextPageToken = undefined;
+  let page = 0;
 
   for (;;) {
+    page++;
     const params = new URLSearchParams({ jql, fields, maxResults });
     if (nextPageToken) params.set('nextPageToken', nextPageToken);
 
@@ -132,6 +134,11 @@ async function fetchAllPages(jql, fields) {
     const data = await res.json();
     const issues = data.issues ?? [];
 
+    // Log what Jira returns to help debug total count
+    if (page === 1) {
+      console.log(`[Jira] total reported by API: ${data.total ?? 'n/a'}, fetching all pages...`);
+    }
+
     for (const issue of issues) {
       if (!seen.has(issue.key)) {
         seen.add(issue.key);
@@ -139,8 +146,10 @@ async function fetchAllPages(jql, fields) {
       }
     }
 
-    // Stop when no more pages
-    if (!data.nextPageToken || issues.length < maxResults) break;
+    if (!data.nextPageToken) {
+      console.log(`[Jira] done. Pages fetched: ${page}, total issues loaded: ${allIssues.length}`);
+      break;
+    }
     nextPageToken = data.nextPageToken;
   }
 

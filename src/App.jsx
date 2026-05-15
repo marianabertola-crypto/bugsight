@@ -18,21 +18,21 @@ const DEFAULT_FILTERS = {
   dateTo: '',
 };
 
-function todayUTC() {
+function todayLocal() {
   const d = new Date();
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function formatTodayLabel() {
   const d = new Date();
-  return `Reportados hoy (${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')})`;
+  return `Reportados hoy (${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')})`;
 }
 
 function BugTrackerMetrics({ bugs, loading }) {
   const total = bugs.length;
   const critical = bugs.filter((b) => b.priority === 'Highest' || b.priority === 'High').length;
   const sinEta = bugs.filter((b) => !b.eta).length;
-  const hoy = bugs.filter((b) => b.reportedAt === todayUTC()).length;
+  const hoy = bugs.filter((b) => b.reportedAt === todayLocal()).length;
 
   const metrics = [
     { label: 'Bugs activos', value: total, icon: '🐛', color: 'var(--color-primary)' },
