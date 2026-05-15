@@ -113,89 +113,69 @@ export function mapJiraIssue(issue) {
   };
 }
 
-export async function fetchActiveBugs() {
-  const today = new Date().toISOString().split('T')[0]; // yyyy-mm-dd UTC
-  const jql =
-    `issuetype = Bug AND project != HUREP AND created >= "2025-04-01" AND created <= "${today}" AND status NOT IN (CLOSED, RELEASED) ORDER BY created DESC`;
+async function fetchAllPages(jql, fields) {
   const bugs = [];
   const seen = new Set();
-  let nextPageToken;
+  const maxResults = 100;
+  let startAt = 0;
+  let total = Infinity;
 
-  for (;;) {
-    const params = new URLSearchParams({
-      jql,
-      fields:
-        'summary,status,priority,created,fixVersions,customfield_10071,customfield_10046,customfield_10109',
-      maxResults: 100,
-    });
-    if (nextPageToken) params.set('nextPageToken', nextPageToken);
-
+  while (startAt < total) {
+    const params = new URLSearchParams({ jql, fields, maxResults, startAt });
     const res = await fetch(`/api/jira-search?${params}`);
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`Jira API error: ${res.status} - ${text.slice(0, 200)}`);
     }
-
     const data = await res.json();
     const issues = data.issues ?? [];
+    total = data.total ?? 0;
+
     for (const issue of issues) {
       if (!seen.has(issue.key)) {
         seen.add(issue.key);
-        bugs.push(mapJiraIssue(issue));
+        bugs.push(issue);
       }
     }
 
-    if (!data.nextPageToken || issues.length === 0) break;
-    nextPageToken = data.nextPageToken;
+    startAt += issues.length;
+    if (issues.length === 0) break;
   }
 
   return bugs;
 }
 
+export async function fetchActiveBugs() {
+  const jql =
+    'issuetype = Bug AND project != HUREP AND created >= "2025-04-01" AND status NOT IN (CLOSED, RELEASED) ORDER BY created ASC';
+  const fields =
+    'summary,status,priority,created,fixVersions,customfield_10071,customfield_10046,customfield_10109';
+
+  const issues = await fetchAllPages(jql, fields);
+  return issues.map(mapJiraIssue);
+}
+
 export async function fetchClosedBugs() {
   const jql =
-    'issuetype = Bug AND project != HUREP AND created >= "2025-04-01" AND status IN (CLOSED, RELEASED) ORDER BY created DESC';
-  const bugs = [];
-  let nextPageToken;
+    'issuetype = Bug AND project != HUREP AND created >= "2025-04-01" AND status IN (CLOSED, RELEASED) ORDER BY created ASC';
+  const fields = 'summary,status,created,resolutiondate,customfield_10071,customfield_10046';
 
-  for (;;) {
-    const params = new URLSearchParams({
-      jql,
-      fields: 'summary,status,created,resolutiondate,customfield_10071,customfield_10046',
-      maxResults: 100,
-    });
-    if (nextPageToken) params.set('nextPageToken', nextPageToken);
-
-    const res = await fetch(`/api/jira-search?${params}`);
-    if (!res.ok) break;
-
-    const data = await res.json();
-    const issues = data.issues ?? [];
-    bugs.push(
-      ...issues.map((issue) => {
-        const fields = issue.fields;
-        const miniAppsField = fields.customfield_10071;
-        const miniApps = miniAppsField
-          ? miniAppsField.map((i) => (typeof i === 'string' ? i : i?.value)).filter(Boolean)
-          : [];
-        return {
-          id: issue.key,
-          title: fields.summary,
-          status: STATUS_MAP[fields.status.name] || fields.status.name,
-          module: extractModuleFromCustomField(miniAppsField) || extractModuleFromTitle(fields.summary),
-          miniApps,
-          affectedClients: Array.isArray(fields.customfield_10046)
-            ? fields.customfield_10046.filter(Boolean)
-            : [],
-          reportedAt: fields.created.split('T')[0],
-          resolvedAt: fields.resolutiondate ? fields.resolutiondate.split('T')[0] : null,
-        };
-      }),
-    );
-
-    if (!data.nextPageToken || issues.length === 0) break;
-    nextPageToken = data.nextPageToken;
-  }
-
-  return bugs;
+  const issues = await fetchAllPages(jql, fields);
+  return issues.map((issue) => {
+    const f = issue.fields;
+    const miniAppsField = f.customfield_10071;
+    const miniApps = miniAppsField
+      ? miniAppsField.map((i) => (typeof i === 'string' ? i : i?.value)).filter(Boolean)
+      : [];
+    return {
+      id: issue.key,
+      title: f.summary,
+      status: STATUS_MAP[f.status.name] || f.status.name,
+      module: extractModuleFromCustomField(miniAppsField) || extractModuleFromTitle(f.summary),
+      miniApps,
+      affectedClients: Array.isArray(f.customfield_10046) ? f.customfield_10046.filter(Boolean) : [],
+      reportedAt: f.created.split('T')[0],
+      resolvedAt: f.resolutiondate ? f.resolutiondate.split('T')[0] : null,
+    };
+  });
 }

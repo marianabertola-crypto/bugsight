@@ -13,7 +13,7 @@ export default async function handler(req, res) {
   }
 
   const params = new URLSearchParams(req.query);
-  const jiraUrl = `${JIRA_BASE_URL}/rest/api/3/search/jql?${params}`;
+  const jiraUrl = `${JIRA_BASE_URL}/rest/api/3/search?${params}`;
 
   try {
     const credentials = Buffer.from(`${JIRA_EMAIL}:${JIRA_TOKEN}`).toString('base64');
