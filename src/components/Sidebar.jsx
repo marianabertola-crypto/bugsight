@@ -12,15 +12,7 @@ export default function Sidebar({ activeSection, onSectionChange, user, onLogout
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
-        <div className="sidebar-logo-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{display:'block'}}>
-            <ellipse cx="12" cy="13" rx="5" ry="6" />
-            <circle cx="12" cy="6" r="2" />
-            <path d="M7 9l-3-2M17 9l3-2" />
-            <path d="M7 13H4M20 13h-3" />
-            <path d="M7 17l-3 2M17 17l3 2" />
-          </svg>
-        </div>
+        <div className="sidebar-logo-icon">🐞</div>
         <span className="sidebar-logo-name">BugSight</span>
       </div>
 
