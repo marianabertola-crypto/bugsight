@@ -7,7 +7,7 @@ import NotesModal from './NotesModal';
 import IssueModal from './IssueModal';
 import ConsultarETAModal from './ConsultarETAModal';
 
-const STATUSES = ['Parking Lot', 'Backlog', 'Discovery', 'For Development', 'Developing', 'Developed', 'Staging'];
+const STATUSES = ['Parking Lot', 'Backlog', 'Discovery', 'For Development', 'Developing', 'Developed', 'Staging', 'Closed', 'Released'];
 const PRIORITIES = ['Highest', 'High', 'Medium', 'Low', 'Lowest'];
 const PRIORITY_ORDER = { Highest: 0, High: 1, Medium: 2, Low: 3, Lowest: 4 };
 const PAGE_SIZE = 15;

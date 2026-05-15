@@ -145,7 +145,11 @@ export function AppLayout() {
     let result = bugs;
     if (filters.etaFilter === 'sin-eta') result = result.filter((b) => !b.eta);
     if (filters.etaFilter === 'con-eta') result = result.filter((b) => !!b.eta);
-    if (filters.statuses.length) result = result.filter((b) => filters.statuses.includes(b.status));
+    if (filters.statuses.length) {
+      result = result.filter((b) => filters.statuses.includes(b.status));
+    } else {
+      result = result.filter((b) => b.status !== 'Closed' && b.status !== 'Released');
+    }
     if (filters.priorities.length) result = result.filter((b) => filters.priorities.includes(b.priority));
     if (filters.search.trim()) {
       const q = norm(filters.search.trim());
