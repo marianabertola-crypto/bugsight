@@ -5,6 +5,7 @@ import BugCard from './BugCard';
 import ETAModal from './ETAModal';
 import NotesModal from './NotesModal';
 import IssueModal from './IssueModal';
+import ConsultarETAModal from './ConsultarETAModal';
 
 const STATUSES = ['Parking Lot', 'Backlog', 'Discovery', 'For Development', 'Developing', 'Developed', 'Staging'];
 const PRIORITIES = ['Highest', 'High', 'Medium', 'Low', 'Lowest'];
@@ -43,6 +44,7 @@ export default function BugTracker({
   user,
 }) {
   const [expanded, setExpanded] = useState({});
+  const [consultBug, setConsultBug] = useState(null);
 
   // Group by miniApps (a bug can appear in multiple groups)
   const grouped = useMemo(() => {
@@ -129,10 +131,7 @@ export default function BugTracker({
                       key={bug.id}
                       bug={bug}
                       moduleInfo={moduleInfo}
-                      onConsultETA={(b) => {
-                        // increment consultation count
-                        onOpenETA(b);
-                      }}
+                      onConsultETA={(b) => setConsultBug(b)}
                       onLoadETA={onOpenETA}
                       onDeleteETA={onDeleteETA}
                       onNotes={onOpenNotes}
@@ -172,6 +171,14 @@ export default function BugTracker({
           onAddNote={onAddNote}
           onDeleteNote={onDeleteNote}
           onEditNote={onEditNote}
+        />
+      )}
+
+      {consultBug && (
+        <ConsultarETAModal
+          bug={consultBug}
+          moduleInfo={MODULES[consultBug.miniApps?.[0] || consultBug.module] || {}}
+          onClose={() => setConsultBug(null)}
         />
       )}
     </>

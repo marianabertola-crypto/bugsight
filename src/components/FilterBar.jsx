@@ -19,18 +19,6 @@ export default function FilterBar({ filters, onChange, onRefresh, refreshing, st
   return (
     <div className="filter-bar">
       <div className="filter-bar-top">
-        <div className="filter-main-buttons">
-          {[['all', 'Todos'], ['sin-eta', 'Sin ETA'], ['con-eta', 'Con ETA']].map(([key, label]) => (
-            <button
-              key={key}
-              className={`filter-btn${etaFilter === key ? ' active' : ''}`}
-              onClick={() => onChange({ ...filters, etaFilter: key })}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
         <div className="filter-search-row">
           <div className="filter-search">
             <span className="filter-search-icon">🔍</span>
@@ -55,6 +43,20 @@ export default function FilterBar({ filters, onChange, onRefresh, refreshing, st
               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
             </svg>
           </button>
+        </div>
+
+        <div className="filter-right-group">
+          <div className="filter-main-buttons">
+            {[['all', 'Todos'], ['sin-eta', 'Sin ETA'], ['con-eta', 'Con ETA']].map(([key, label]) => (
+              <button
+                key={key}
+                className={`filter-btn${etaFilter === key ? ' active' : ''}`}
+                onClick={() => onChange({ ...filters, etaFilter: key })}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <button
             className={`filter-funnel${activeCount > 0 ? ' has-filters' : ''}`}
             onClick={() => setShowAdvanced((p) => !p)}
