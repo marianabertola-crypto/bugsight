@@ -70,7 +70,7 @@ function exportCsv(filename, rows) {
 
 // ── Line chart ────────────────────────────────────────────────────────────────
 
-function LineChart({ series, labels, height = 180 }) {
+function LineChart({ series, labels, height = 180, onPointClick }) {
   const [hover, setHover] = useState(null);
   const W = 560, H = height;
   const pad = { top: 15, right: 20, bottom: 40, left: 50 };
@@ -85,11 +85,12 @@ function LineChart({ series, labels, height = 180 }) {
   const flipTooltip = tooltipX > W * 0.65;
   const tooltipW = series.length > 1 ? 110 : 80;
   const tooltipH = series.length * 16 + 24;
+  const isClickable = !!onPointClick;
 
-  function onMouseMove(e) {
+  function getHoverIdx(e) {
     const rect = e.currentTarget.getBoundingClientRect();
     const idx = Math.round(((e.clientX - rect.left) / rect.width * W - pad.left) / iW * (labels.length - 1));
-    setHover(idx >= 0 && idx < labels.length ? idx : null);
+    return idx >= 0 && idx < labels.length ? idx : null;
   }
 
   return (
@@ -106,9 +107,10 @@ function LineChart({ series, labels, height = 180 }) {
       )}
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        style={{ width: '100%', height: 'auto', display: 'block', cursor: 'crosshair' }}
-        onMouseMove={onMouseMove}
+        style={{ width: '100%', height: 'auto', display: 'block', cursor: isClickable ? 'pointer' : 'crosshair' }}
+        onMouseMove={(e) => setHover(getHoverIdx(e))}
         onMouseLeave={() => setHover(null)}
+        onClick={(e) => { if (isClickable) { const idx = getHoverIdx(e); if (idx !== null) onPointClick(idx); } }}
       >
         {gridLines.map((v, i) => (
           <g key={i}>
@@ -137,7 +139,7 @@ function LineChart({ series, labels, height = 180 }) {
               <circle key={i} cx={tooltipX} cy={yOf(s.data[hover])} r="5" fill={s.color} stroke="white" strokeWidth="2" />
             ))}
             <rect x={flipTooltip ? tooltipX - tooltipW - 10 : tooltipX + 10} y={pad.top + 4} width={tooltipW} height={tooltipH} rx="4" fill="#1e2a3a" opacity="0.92" />
-            <text x={flipTooltip ? tooltipX - tooltipW - 2 : tooltipX + 18} y={pad.top + 17} fontSize="10" fill="#aab4c0" fontWeight="600">{labels[hover]}</text>
+            <text x={flipTooltip ? tooltipX - tooltipW - 2 : tooltipX + 18} y={pad.top + 17} fontSize="10" fill="#aab4c0" fontWeight="600">{labels[hover]}{isClickable ? ' →' : ''}</text>
             {series.map((s, i) => (
               <text key={i} x={flipTooltip ? tooltipX - tooltipW - 2 : tooltipX + 18} y={pad.top + 17 + (i + 1) * 16} fontSize="11" fill={s.color} fontWeight="600">
                 {series.length > 1 ? `${s.label}: ` : ''}{s.data[hover]}
@@ -371,12 +373,20 @@ function AlertCards({ bugs }) {
 // ── Charts ────────────────────────────────────────────────────────────────────
 
 function BugsByDay({ bugs, period }) {
-  const { labels, series } = useMemo(() => {
+  const [drilldown, setDrilldown] = useState(null);
+
+  const { dates, labels, series } = useMemo(() => {
     const dates = dateRange(period.from, period.to);
     const counts = Object.fromEntries(dates.map((d) => [d, 0]));
     for (const b of bugs) if (counts[b.reportedAt] !== undefined) counts[b.reportedAt]++;
-    return { labels: dates.map(shortDate), series: [{ data: dates.map((d) => counts[d]), color: '#4B6BFB', label: 'Bugs' }] };
+    return { dates, labels: dates.map(shortDate), series: [{ data: dates.map((d) => counts[d]), color: '#4B6BFB', label: 'Bugs' }] };
   }, [bugs, period]);
+
+  function handlePointClick(idx) {
+    const date = dates[idx];
+    const dayBugs = bugs.filter((b) => b.reportedAt === date);
+    if (dayBugs.length > 0) setDrilldown({ title: `Bugs del ${labels[idx]}`, bugs: dayBugs });
+  }
 
   function download() {
     const rows = [['fecha', 'card_id', 'titulo', 'modulo', 'estado', 'prioridad'],
@@ -385,15 +395,18 @@ function BugsByDay({ bugs, period }) {
   }
 
   return (
-    <div className="chart-card">
-      <div className="chart-card-header">
-        <span className="chart-card-title">Bugs por día</span>
-        <button className="chart-csv-btn" onClick={download} title="Descargar CSV">↓</button>
+    <>
+      <div className="chart-card">
+        <div className="chart-card-header">
+          <span className="chart-card-title">Bugs por día</span>
+          <button className="chart-csv-btn" onClick={download} title="Descargar CSV">↓</button>
+        </div>
+        {series[0].data.some((v) => v > 0)
+          ? <LineChart series={series} labels={labels} onPointClick={handlePointClick} />
+          : <div className="chart-empty">Sin datos para el período seleccionado</div>}
       </div>
-      {series[0].data.some((v) => v > 0)
-        ? <LineChart series={series} labels={labels} />
-        : <div className="chart-empty">Sin datos para el período seleccionado</div>}
-    </div>
+      {drilldown && <DrilldownModal title={drilldown.title} bugs={drilldown.bugs} onClose={() => setDrilldown(null)} />}
+    </>
   );
 }
 
