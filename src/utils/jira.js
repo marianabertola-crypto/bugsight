@@ -177,7 +177,7 @@ export async function fetchActiveBugs() {
   const jql =
     'issuetype = Bug AND project != HUREP AND created >= "2025-04-01" ORDER BY created ASC';
   const fields =
-    'summary,status,priority,created,fixVersions,customfield_10071,customfield_10046,customfield_10109';
+    'summary,status,priority,created,resolutiondate,fixVersions,customfield_10071,customfield_10046,customfield_10109';
 
   const issues = await fetchAllPages(jql, fields);
   return issues.map(mapJiraIssue);

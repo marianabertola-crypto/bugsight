@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { MODULE_NAMES } from '../config/modules';
-import { fetchClosedBugs } from '../utils/jira';
 import './Insights.css';
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
@@ -632,24 +631,6 @@ function VidaUtilPorModulo({ bugs, period }) {
   );
 }
 
-// ── Closed bugs cache ─────────────────────────────────────────────────────────
-
-const CACHE_KEY = 'bugsight_insights_closed_v2';
-const CACHE_TTL = 10 * 60 * 1000;
-
-async function loadClosedBugs() {
-  try {
-    const raw = sessionStorage.getItem(CACHE_KEY);
-    if (raw) {
-      const { data, ts } = JSON.parse(raw);
-      if (Date.now() - ts < CACHE_TTL) return data;
-    }
-  } catch {}
-  const data = await fetchClosedBugs();
-  try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts: Date.now() })); } catch {}
-  return data;
-}
-
 // ── Main Insights page ────────────────────────────────────────────────────────
 
 const MIN_DATE = '2025-04-01';
@@ -660,43 +641,14 @@ export default function Insights({ bugs, onRefresh, refreshing }) {
   const [periodPreset, setPeriodPreset] = useState('30d');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [closedBugs, setClosedBugs] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
 
-  const allBugs = useMemo(() => {
-    const map = new Map();
-    for (const b of bugs) map.set(b.id, b);
-    for (const b of closedBugs) {
-      if (!map.has(b.id)) {
-        map.set(b.id, b);
-      } else if (b.resolvedAt) {
-        map.set(b.id, { ...map.get(b.id), resolvedAt: b.resolvedAt });
-      }
-    }
-    return [...map.values()];
-  }, [bugs, closedBugs]);
-
-  async function fetchClosed(forceRefresh = false) {
-    if (forceRefresh) {
-      try { sessionStorage.removeItem(CACHE_KEY); } catch {}
-    }
-    setLoading(true);
-    try {
-      const data = await loadClosedBugs();
-      setClosedBugs(data);
-    } catch (err) {
-      console.error('Error cargando Insights:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => { fetchClosed(); }, []);
+  // Use bugs prop directly — fetchActiveBugs() already fetches all statuses
+  // including closed/released, so no separate closed-bugs fetch is needed.
+  const allBugs = bugs;
 
   function handleRefresh() {
-    fetchClosed(true);
     onRefresh?.();
   }
 
@@ -737,14 +689,6 @@ export default function Insights({ bugs, onRefresh, refreshing }) {
     return result;
   }, [allBugs, clientSearch, moduleFilter, period]);
 
-  if (loading) {
-    return (
-      <div className="app-loading">
-        <div className="app-loading-spinner" />
-        <p>Cargando Insights desde Jira…</p>
-      </div>
-    );
-  }
 
   return (
     <div className="insights-page">
@@ -754,9 +698,9 @@ export default function Insights({ bugs, onRefresh, refreshing }) {
           <p className="insights-subtitle">Análisis y tendencias de bugs por módulo y cliente</p>
         </div>
         <button
-          className={`btn-refresh-inline ${refreshing || loading ? 'spinning' : ''}`}
+          className={`btn-refresh-inline ${refreshing ? 'spinning' : ''}`}
           onClick={handleRefresh}
-          disabled={refreshing || loading}
+          disabled={refreshing}
           title="Actualizar datos desde Jira"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
