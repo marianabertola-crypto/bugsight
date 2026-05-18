@@ -116,6 +116,7 @@ export function mapJiraIssue(issue) {
     eta: extractEtaFromFixVersions(fields.fixVersions),
     etaConsultations: 0,
     reportedAt: toLocalDate(fields.created),
+    createdAt: fields.created,
     resolvedAt: fields.resolutiondate ? toLocalDate(fields.resolutiondate) : null,
     notes: [],
   };

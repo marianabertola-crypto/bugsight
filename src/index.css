@@ -317,6 +317,14 @@ a { color: var(--color-primary); text-decoration: none; }
 .issue-modal-badge.priority-medium { background: #282510; color: #fbbf24; border-color: transparent; }
 .issue-modal-badge.priority-low { background: #162514; color: #86efac; border-color: transparent; }
 .issue-modal-meta-text { font-size: 12px; color: var(--color-text-secondary); }
+.issue-modal-badge.module { background: #eff6ff; color: #3b82f6; border-color: #bfdbfe; }
+.issue-modal-info-row { display: flex; flex-wrap: wrap; gap: 12px; padding: 10px 20px 4px; border-top: 1px solid var(--color-border); }
+.issue-modal-info-item { display: flex; flex-direction: column; gap: 3px; min-width: 120px; }
+.issue-modal-info-item--wide { flex: 1 1 100%; }
+.issue-modal-info-label { font-size: 11px; font-weight: 600; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: .04em; }
+.issue-modal-info-value { font-size: 13px; color: var(--color-text); }
+.issue-modal-client-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
+.issue-modal-client-tag { font-size: 11px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 12px; padding: 2px 8px; color: var(--color-text); }
 .issue-modal-body { padding: 12px 20px 20px; display: flex; flex-direction: column; gap: 16px; }
 .issue-modal-description { font-size: 13px; color: var(--color-text); line-height: 1.6; }
 .issue-modal-no-desc { font-size: 13px; color: var(--color-text-secondary); font-style: italic; }

@@ -151,7 +151,7 @@ export default function BugTracker({
       )}
 
       {selectedBug && (
-        <IssueModal issueKey={selectedBug.id} onClose={onCloseModal} />
+        <IssueModal issueKey={selectedBug.id} bug={selectedBug} onClose={onCloseModal} />
       )}
 
       {etaBug && (

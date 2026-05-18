@@ -293,10 +293,16 @@ function AlertCards({ bugs }) {
     return { pico: { module: top[0], count: top[1] }, picoBugs: recent.filter((b) => b.module === top[0]) };
   }, [bugs]);
 
-  const { clientesAltos, clientesBugs } = useMemo(() => {
-    const cutoff = daysAgo(1);
-    const high = bugs.filter((b) => b.reportedAt >= cutoff && (b.affectedClients || []).length >= 3);
-    return { clientesAltos: high.length > 0 ? high.length : null, clientesBugs: high };
+  // Card 1: last 6 hours, 3+ affected clients
+  const clientes6h = useMemo(() => {
+    const cutoff = new Date(Date.now() - 6 * 60 * 60 * 1000);
+    return bugs.filter((b) => b.createdAt && new Date(b.createdAt) >= cutoff && (b.affectedClients || []).length >= 3);
+  }, [bugs]);
+
+  // Card 2: last 24 hours, 5+ affected clients
+  const clientes24h = useMemo(() => {
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    return bugs.filter((b) => b.createdAt && new Date(b.createdAt) >= cutoff && (b.affectedClients || []).length >= 5);
   }, [bugs]);
 
   const alerts = [
@@ -311,20 +317,34 @@ function AlertCards({ bugs }) {
       drillTitle: pico ? `Módulo en alerta — ${pico.module}` : '',
     },
     {
-      key: 'clientes',
-      color: clientesAltos ? 'yellow' : 'muted',
+      key: 'clientes6h',
+      color: clientes6h.length > 0 ? 'yellow' : 'muted',
       icon: '🟡',
-      title: 'Impacto en clientes',
-      description: 'Cards con 3 o más clientes afectados reportadas en las últimas 24hs',
-      message: clientesAltos ? `${clientesAltos} ${clientesAltos === 1 ? 'card' : 'cards'} con 3+ clientes en las últimas 24hs` : 'Sin alertas activas',
-      drillBugs: clientesBugs,
-      drillTitle: 'Impacto en clientes — últimas 24hs',
+      title: 'Impacto en clientes · 6hs',
+      description: 'Cards con 3 o más clientes afectados reportadas en las últimas 6 horas',
+      message: clientes6h.length > 0
+        ? `${clientes6h.length} ${clientes6h.length === 1 ? 'card' : 'cards'} con 3+ clientes en las últimas 6hs`
+        : 'Sin alertas activas',
+      drillBugs: clientes6h,
+      drillTitle: 'Impacto en clientes — últimas 6hs (3+ clientes)',
+    },
+    {
+      key: 'clientes24h',
+      color: clientes24h.length > 0 ? 'yellow' : 'muted',
+      icon: '🟠',
+      title: 'Impacto en clientes · 24hs',
+      description: 'Cards con 5 o más clientes afectados reportadas en las últimas 24 horas',
+      message: clientes24h.length > 0
+        ? `${clientes24h.length} ${clientes24h.length === 1 ? 'card' : 'cards'} con 5+ clientes en las últimas 24hs`
+        : 'Sin alertas activas',
+      drillBugs: clientes24h,
+      drillTitle: 'Impacto en clientes — últimas 24hs (5+ clientes)',
     },
   ];
 
   return (
     <>
-      <div className="insights-alerts insights-alerts--2col">
+      <div className="insights-alerts insights-alerts--3col">
         {alerts.map((a) => {
           const clickable = a.drillBugs.length > 0;
           return (
@@ -422,10 +442,27 @@ function DowntimeLatencias({ allBugs, period }) {
   );
 }
 
+const ALL_STATUSES = ['Parking Lot', 'Backlog', 'Discovery', 'For Development', 'Developing', 'Developed', 'Staging', 'Closed', 'Released'];
+const ACTIVE_ONLY = ['Parking Lot', 'Backlog', 'Discovery', 'For Development', 'Developing', 'Developed', 'Staging'];
+
 function TopClientes({ bugs }) {
   const [top, setTop] = useState(5);
+  const [showStatusFilter, setShowStatusFilter] = useState(false);
+  const [selectedStatuses, setSelectedStatuses] = useState([]); // empty = active only
+
+  function toggleStatus(s) {
+    setSelectedStatuses((prev) =>
+      prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]
+    );
+  }
+
+  const filteredByStatus = useMemo(() => {
+    const allowed = selectedStatuses.length > 0 ? selectedStatuses : ACTIVE_ONLY;
+    return bugs.filter((b) => allowed.includes(b.status));
+  }, [bugs, selectedStatuses]);
+
   const data = useMemo(() =>
-    [...bugs].filter((b) => (b.affectedClients || []).length > 0)
+    [...filteredByStatus].filter((b) => (b.affectedClients || []).length > 0)
       .sort((a, b) => b.affectedClients.length - a.affectedClients.length)
       .slice(0, top)
       .map((b) => ({
@@ -434,14 +471,16 @@ function TopClientes({ bugs }) {
         value: b.affectedClients.length,
         href: `https://humand.atlassian.net/browse/${b.id}`,
       })),
-    [bugs, top]);
+    [filteredByStatus, top]);
 
   function download() {
-    const rows = [['card_id', 'titulo', 'modulo', 'cliente_afectado']];
-    for (const b of [...bugs].filter((b) => (b.affectedClients || []).length > 0).sort((a, b) => b.affectedClients.length - a.affectedClients.length).slice(0, top))
-      for (const c of b.affectedClients || []) rows.push([b.id, b.title, b.module, c]);
+    const rows = [['card_id', 'titulo', 'modulo', 'estado', 'cliente_afectado']];
+    for (const b of [...filteredByStatus].filter((b) => (b.affectedClients || []).length > 0).sort((a, b) => b.affectedClients.length - a.affectedClients.length).slice(0, top))
+      for (const c of b.affectedClients || []) rows.push([b.id, b.title, b.module, b.status, c]);
     exportCsv('top-clientes.csv', rows);
   }
+
+  const activeFilters = selectedStatuses.length;
 
   return (
     <div className="chart-card">
@@ -451,9 +490,45 @@ function TopClientes({ bugs }) {
           {[[5, 'Top 5'], [10, 'Top 10']].map(([n, label]) => (
             <button key={n} className={`chart-pill${top === n ? ' active' : ''}`} onClick={() => setTop(n)}>{label}</button>
           ))}
+          <button
+            className={`chart-csv-btn${showStatusFilter ? ' active' : ''}`}
+            onClick={() => setShowStatusFilter((p) => !p)}
+            title="Filtrar por estado"
+            style={activeFilters > 0 ? { borderColor: 'var(--color-primary)', color: 'var(--color-primary)' } : {}}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+            </svg>
+            {activeFilters > 0 ? ` ${activeFilters}` : ''}
+          </button>
           <button className="chart-csv-btn" onClick={download} title="Descargar CSV">↓</button>
         </div>
       </div>
+
+      {showStatusFilter && (
+        <div className="top-clientes-filter">
+          <span className="top-clientes-filter-label">
+            Estado {selectedStatuses.length === 0 && <span style={{ color: 'var(--color-text-secondary)', fontWeight: 400 }}>(activos por defecto)</span>}
+          </span>
+          <div className="top-clientes-filter-chips">
+            {ALL_STATUSES.map((s) => (
+              <button
+                key={s}
+                className={`filter-chip${selectedStatuses.includes(s) ? ' active' : ''}`}
+                onClick={() => toggleStatus(s)}
+              >
+                {s}
+              </button>
+            ))}
+            {selectedStatuses.length > 0 && (
+              <button className="filter-chip" style={{ color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }} onClick={() => setSelectedStatuses([])}>
+                Limpiar
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {data.length > 0
         ? <HBarChart data={data} color="#4B6BFB" />
         : <div className="chart-empty">Sin datos</div>}
