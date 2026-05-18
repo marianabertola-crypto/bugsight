@@ -126,7 +126,12 @@ function LineChart({ series, labels, height = 180 }) {
               fill="none" stroke={s.color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"
             />
             {s.data.map((v, i) => (
-              <circle key={i} cx={xOf(i)} cy={yOf(v)} r="3.5" fill="white" stroke={s.color} strokeWidth="2" />
+              <g key={i}>
+                <circle cx={xOf(i)} cy={yOf(v)} r={labels.length === 1 ? 6 : 3.5} fill={labels.length === 1 ? s.color : 'white'} stroke={s.color} strokeWidth="2" />
+                {labels.length === 1 && (
+                  <text x={xOf(i) + 12} y={yOf(v) + 4} fontSize="13" fontWeight="700" fill={s.color}>{v}</text>
+                )}
+              </g>
             ))}
           </g>
         ))}
