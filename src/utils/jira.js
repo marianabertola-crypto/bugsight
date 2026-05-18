@@ -121,6 +121,21 @@ export function mapJiraIssue(issue) {
   };
 }
 
+async function fetchOnePage(params, attempt = 1) {
+  try {
+    const res = await fetch(`/api/jira-search?${params}`);
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Jira API error: ${res.status} - ${text.slice(0, 200)}`);
+    }
+    return await res.json();
+  } catch (err) {
+    if (attempt >= 3) throw err;
+    await new Promise((r) => setTimeout(r, 800 * attempt));
+    return fetchOnePage(params, attempt + 1);
+  }
+}
+
 async function fetchAllPages(jql, fields) {
   const allIssues = [];
   const seen = new Set();
@@ -133,18 +148,11 @@ async function fetchAllPages(jql, fields) {
     const params = new URLSearchParams({ jql, fields, maxResults });
     if (nextPageToken) params.set('nextPageToken', nextPageToken);
 
-    const res = await fetch(`/api/jira-search?${params}`);
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Jira API error: ${res.status} - ${text.slice(0, 200)}`);
-    }
-
-    const data = await res.json();
+    const data = await fetchOnePage(params);
     const issues = data.issues ?? [];
 
-    // Log what Jira returns to help debug total count
     if (page === 1) {
-      console.log(`[Jira] total reported by API: ${data.total ?? 'n/a'}, fetching all pages...`);
+      console.log(`[Jira] fetching all pages...`);
     }
 
     for (const issue of issues) {
@@ -155,7 +163,7 @@ async function fetchAllPages(jql, fields) {
     }
 
     if (!data.nextPageToken) {
-      console.log(`[Jira] done. Pages fetched: ${page}, total issues loaded: ${allIssues.length}`);
+      console.log(`[Jira] done. Pages: ${page}, bugs: ${allIssues.length}`);
       break;
     }
     nextPageToken = data.nextPageToken;
