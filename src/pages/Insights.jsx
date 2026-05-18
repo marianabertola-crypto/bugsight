@@ -121,17 +121,12 @@ function LineChart({ series, labels, height = 180 }) {
         ))}
         {series.map((s, si) => (
           <g key={si}>
-            <polyline
-              points={s.data.map((v, i) => `${xOf(i)},${yOf(v)}`).join(' ')}
-              fill="none" stroke={s.color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"
-            />
+            {labels.length === 1
+              ? <line x1={pad.left} y1={yOf(s.data[0])} x2={W - pad.right} y2={yOf(s.data[0])} stroke={s.color} strokeWidth="2.5" strokeDasharray="6,4" opacity="0.7" />
+              : <polyline points={s.data.map((v, i) => `${xOf(i)},${yOf(v)}`).join(' ')} fill="none" stroke={s.color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+            }
             {s.data.map((v, i) => (
-              <g key={i}>
-                <circle cx={xOf(i)} cy={yOf(v)} r={labels.length === 1 ? 6 : 3.5} fill={labels.length === 1 ? s.color : 'white'} stroke={s.color} strokeWidth="2" />
-                {labels.length === 1 && (
-                  <text x={xOf(i) + 12} y={yOf(v) + 4} fontSize="13" fontWeight="700" fill={s.color}>{v}</text>
-                )}
-              </g>
+              <circle key={i} cx={xOf(i)} cy={yOf(v)} r="3.5" fill="white" stroke={s.color} strokeWidth="2" />
             ))}
           </g>
         ))}
