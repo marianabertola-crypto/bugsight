@@ -224,6 +224,7 @@ function LiveCard({ type, activeBugs, allBugs }) {
     const t = today();
     return activeBugs.filter((b) => {
       if (b.reportedAt !== t) return false;
+      if (b.status === 'Closed' || b.status === 'Released') return false;
       const title = b.title.toLowerCase();
       return title.includes(keyword) || (keyword2 && title.includes(keyword2));
     });
