@@ -699,9 +699,7 @@ export default function Insights({ bugs, onRefresh, refreshing }) {
     if (moduleFilter && moduleFilter !== 'all') {
       result = result.filter((b) => b.miniApps?.includes(moduleFilter) || b.module === moduleFilter);
     }
-    if (!clientSearch.trim()) {
-      result = result.filter((b) => b.reportedAt >= period.from && b.reportedAt <= period.to);
-    }
+    result = result.filter((b) => b.reportedAt >= period.from && b.reportedAt <= period.to);
     return result;
   }, [allBugs, clientSearch, moduleFilter, period]);
 

@@ -110,7 +110,7 @@ export function mapJiraIssue(issue) {
     module: extractModuleFromCustomField(miniAppsField) || extractModuleFromTitle(fields.summary),
     miniApps,
     affectedClients: Array.isArray(fields.customfield_10046)
-      ? fields.customfield_10046.filter(Boolean)
+      ? fields.customfield_10046.map((c) => (typeof c === 'string' ? c : c?.value)).filter(Boolean)
       : [],
     affectedClientsSize: fields.customfield_10109?.value || null,
     eta: extractEtaFromFixVersions(fields.fixVersions),
@@ -201,7 +201,9 @@ export async function fetchClosedBugs() {
       status: STATUS_MAP[f.status.name] || f.status.name,
       module: extractModuleFromCustomField(miniAppsField) || extractModuleFromTitle(f.summary),
       miniApps,
-      affectedClients: Array.isArray(f.customfield_10046) ? f.customfield_10046.filter(Boolean) : [],
+      affectedClients: Array.isArray(f.customfield_10046)
+        ? f.customfield_10046.map((c) => (typeof c === 'string' ? c : c?.value)).filter(Boolean)
+        : [],
       reportedAt: toLocalDate(f.created),
       resolvedAt: f.resolutiondate ? toLocalDate(f.resolutiondate) : null,
     };
