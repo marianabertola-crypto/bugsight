@@ -18,45 +18,8 @@ const DEFAULT_FILTERS = {
   dateTo: '',
 };
 
-function todayLocal() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
 
-function formatTodayLabel() {
-  const d = new Date();
-  return `Reportados hoy (${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')})`;
-}
 
-function BugTrackerMetrics({ bugs, loading }) {
-  const total = bugs.length;
-  const critical = bugs.filter((b) => b.priority === 'Highest' || b.priority === 'High').length;
-  const sinEta = bugs.filter((b) => !b.eta).length;
-  const hoy = bugs.filter((b) => b.reportedAt === todayLocal()).length;
-
-  const metrics = [
-    { label: 'Bugs activos', value: total, icon: '🐛', color: 'var(--color-primary)' },
-    { label: 'Críticos / Alta prioridad', value: critical, icon: '🔴', color: 'var(--color-danger)' },
-    { label: 'Sin ETA', value: sinEta, icon: '⏳', color: 'var(--color-warning)' },
-    { label: formatTodayLabel(), value: hoy, icon: '📅', color: 'var(--color-success)' },
-  ];
-
-  return (
-    <div className="bt-metrics-row">
-      {metrics.map((m) => (
-        <div key={m.label} className="bt-metric-card">
-          <span className="bt-metric-icon">{m.icon}</span>
-          <div>
-            <div className="bt-metric-value" style={{ color: m.color }}>
-              {loading ? '—' : m.value}
-            </div>
-            <div className="bt-metric-label">{m.label}</div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuth();
@@ -253,7 +216,6 @@ export function AppLayout() {
                   <button onClick={() => { setLoadError(null); loadData(true); }} style={{ marginLeft: 12, color: 'var(--color-danger)', textDecoration: 'underline', cursor: 'pointer' }}>Reintentar</button>
                 </div>
               )}
-              <BugTrackerMetrics bugs={filteredBugs} loading={loading} />
               <BugTracker
                 bugs={filteredBugs}
                 allBugs={bugs}

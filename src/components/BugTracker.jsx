@@ -23,151 +23,31 @@ function norm(s) {
   return s?.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim() ?? '';
 }
 
-function SensitiveView({ allBugs, sensitiveClients, onOpenBug, onOpenETA, onDeleteETA, onOpenNotes, etaBug, onCloseETA, onSaveETA, notesBug, onCloseNotes, onAddNote, onDeleteNote, onEditNote, user, selectedBug, onCloseModal }) {
-  const [sensitiveTab, setSensitiveTab] = useState('all');
-  const [consultBug, setConsultBug] = useState(null);
-  const [expanded, setExpanded] = useState({});
-  const [statusFilter, setStatusFilter] = useState([]); // [] = default (exclude Closed/Released)
+function todayLocal() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
-  const sensitiveNames = useMemo(() => new Set(sensitiveClients.map((c) => norm(c.name))), [sensitiveClients]);
-  const activeNames = useMemo(() => new Set(sensitiveClients.filter((c) => c.currently_sensitive).map((c) => norm(c.name))), [sensitiveClients]);
-  const formerNames = useMemo(() => new Set(sensitiveClients.filter((c) => !c.currently_sensitive).map((c) => norm(c.name))), [sensitiveClients]);
+function formatTodayLabel() {
+  const d = new Date();
+  return `Reportados hoy (${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')})`;
+}
 
-  const nameSet = sensitiveTab === 'active' ? activeNames : sensitiveTab === 'former' ? formerNames : sensitiveNames;
-
-  const filteredBugs = useMemo(() => {
-    return allBugs.filter((b) => {
-      if (!(b.affectedClients || []).some((c) => nameSet.has(norm(c)))) return false;
-      if (statusFilter.length) return statusFilter.includes(b.status);
-      return b.status !== 'Closed' && b.status !== 'Released';
-    });
-  }, [allBugs, nameSet, statusFilter]);
-
-  // Group by client name (sensitive)
-  const grouped = useMemo(() => {
-    const map = {};
-    for (const bug of filteredBugs) {
-      const matchingClients = (bug.affectedClients || []).filter((c) => nameSet.has(norm(c)));
-      for (const client of matchingClients) {
-        const key = client;
-        if (!map[key]) map[key] = [];
-        if (!map[key].find((b) => b.id === bug.id)) map[key].push(bug);
-      }
-    }
-    return Object.keys(map).sort((a, b) => a.localeCompare(b)).map((client) => ({
-      client,
-      bugs: map[client].sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 99) - (PRIORITY_ORDER[b.priority] ?? 99)),
-      isCurrent: activeNames.has(norm(client)),
-    }));
-  }, [filteredBugs, nameSet, activeNames]);
-
-  if (sensitiveClients.length === 0) {
-    return (
-      <div className="bug-list-empty">
-        <span className="bug-list-empty-icon">⏳</span>
-        <p>Cargando lista de clientes sensibles…</p>
-      </div>
-    );
-  }
-
+function Metrics({ metrics, loading }) {
   return (
-    <>
-      {/* Sub-tabs */}
-      <div className="sensitive-tabs">
-        {SENSITIVE_TABS.map((t) => (
-          <button
-            key={t.id}
-            className={`sensitive-tab${sensitiveTab === t.id ? ' active' : ''}`}
-            onClick={() => { setSensitiveTab(t.id); setExpanded({}); }}
-          >
-            {t.label}
-            <span className="sensitive-tab-count">
-              {t.id === 'all' ? sensitiveNames.size : t.id === 'active' ? activeNames.size : formerNames.size}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {/* Status filter */}
-      <div className="sensitive-status-bar">
-        <span className="sensitive-status-label">Estado:</span>
-        <div className="sensitive-status-pills">
-          {STATUSES.map((s) => (
-            <button
-              key={s}
-              className={`sensitive-status-pill${statusFilter.includes(s) ? ' active' : ''}`}
-              onClick={() => {
-                setStatusFilter((prev) =>
-                  prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]
-                );
-                setExpanded({});
-              }}
-            >
-              {s}
-            </button>
-          ))}
+    <div className="bt-metrics-row">
+      {metrics.map((m) => (
+        <div key={m.label} className="bt-metric-card">
+          <span className="bt-metric-icon">{m.icon}</span>
+          <div>
+            <div className="bt-metric-value" style={{ color: m.color }}>
+              {loading ? '—' : m.value}
+            </div>
+            <div className="bt-metric-label">{m.label}</div>
+          </div>
         </div>
-      </div>
-
-      <div className="app-bugs-toolbar">
-        <span className="app-bugs-count">{filteredBugs.length} bug{filteredBugs.length !== 1 ? 's' : ''} en {grouped.length} cliente{grouped.length !== 1 ? 's' : ''}</span>
-      </div>
-
-      {grouped.length === 0 ? (
-        <div className="bug-list-empty">
-          <span className="bug-list-empty-icon">✅</span>
-          <p>No hay bugs reportados para clientes en esta categoría.</p>
-        </div>
-      ) : (
-        <div className="bug-list">
-          {grouped.map(({ client, bugs: clientBugs, isCurrent }) => {
-            const isExpanded = expanded[client];
-            const visible = isExpanded ? clientBugs : clientBugs.slice(0, PAGE_SIZE);
-            const remaining = clientBugs.length - PAGE_SIZE;
-            return (
-              <div key={client} className="bug-module-group">
-                <div className="bug-module-header">
-                  <div className="bug-module-title">
-                    <span className="bug-module-name">{client}</span>
-                    <span className="bug-module-count">{clientBugs.length} bug{clientBugs.length !== 1 ? 's' : ''}</span>
-                    <span className={`sensitive-badge${isCurrent ? ' sensitive-badge--active' : ' sensitive-badge--former'}`}>
-                      {isCurrent ? '🔴 Sensible actualmente' : '🟡 Fue sensible'}
-                    </span>
-                  </div>
-                </div>
-                <div className="bug-module-cards">
-                  {visible.map((bug) => {
-                    const moduleInfo = MODULES[bug.miniApps?.[0] || bug.module] || {};
-                    return (
-                      <BugCard
-                        key={bug.id}
-                        bug={bug}
-                        moduleInfo={moduleInfo}
-                        onConsultETA={(b) => setConsultBug(b)}
-                        onLoadETA={onOpenETA}
-                        onDeleteETA={onDeleteETA}
-                        onNotes={onOpenNotes}
-                        onOpen={onOpenBug}
-                      />
-                    );
-                  })}
-                  {!isExpanded && remaining > 0 && (
-                    <button className="bug-module-expand" onClick={() => setExpanded((p) => ({ ...p, [client]: true }))}>
-                      Ver {remaining} más…
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {selectedBug && <IssueModal issueKey={selectedBug.id} bug={selectedBug} onClose={onCloseModal} />}
-      {etaBug && <ETAModal bug={etaBug} onClose={onCloseETA} onSave={onSaveETA} onDelete={onDeleteETA} />}
-      {notesBug && <NotesModal bug={notesBug} user={user} onClose={onCloseNotes} onAddNote={onAddNote} onDeleteNote={onDeleteNote} onEditNote={onEditNote} />}
-      {consultBug && <ConsultarETAModal bug={consultBug} moduleInfo={MODULES[consultBug.miniApps?.[0] || consultBug.module] || {}} onClose={() => setConsultBug(null)} />}
-    </>
+      ))}
+    </div>
   );
 }
 
@@ -202,7 +82,43 @@ export default function BugTracker({
   const [consultBug, setConsultBug] = useState(null);
   const [activeTab, setActiveTab] = useState('bugs');
 
-  // Group by miniApps (a bug can appear in multiple groups)
+  // Sensitive state lifted here so metrics can react to it
+  const [sensitiveTab, setSensitiveTab] = useState('all');
+  const [statusFilter, setStatusFilter] = useState([]);
+
+  // --- Sensitive data ---
+  const sensitiveNames = useMemo(() => new Set(sensitiveClients.map((c) => norm(c.name))), [sensitiveClients]);
+  const activeNames = useMemo(() => new Set(sensitiveClients.filter((c) => c.currently_sensitive).map((c) => norm(c.name))), [sensitiveClients]);
+  const formerNames = useMemo(() => new Set(sensitiveClients.filter((c) => !c.currently_sensitive).map((c) => norm(c.name))), [sensitiveClients]);
+  const nameSet = sensitiveTab === 'active' ? activeNames : sensitiveTab === 'former' ? formerNames : sensitiveNames;
+
+  const sensitiveBugs = useMemo(() => {
+    return (allBugs || bugs).filter((b) => {
+      if (!(b.affectedClients || []).some((c) => nameSet.has(norm(c)))) return false;
+      if (statusFilter.length) return statusFilter.includes(b.status);
+      return b.status !== 'Closed' && b.status !== 'Released';
+    });
+  }, [allBugs, bugs, nameSet, statusFilter]);
+
+  const sensitiveClientCount = nameSet.size;
+
+  // --- Metrics ---
+  const generalMetrics = [
+    { label: 'Bugs activos', value: bugs.length, icon: '🐛', color: 'var(--color-primary)' },
+    { label: 'Críticos / Alta prioridad', value: bugs.filter((b) => b.priority === 'Highest' || b.priority === 'High').length, icon: '🔴', color: 'var(--color-danger)' },
+    { label: 'Sin ETA', value: bugs.filter((b) => !b.eta).length, icon: '⏳', color: 'var(--color-warning)' },
+    { label: formatTodayLabel(), value: bugs.filter((b) => b.reportedAt === todayLocal()).length, icon: '📅', color: 'var(--color-success)' },
+  ];
+
+  const sensitiveTabLabel = SENSITIVE_TABS.find((t) => t.id === sensitiveTab)?.label || 'Clientes';
+  const sensitiveMetrics = [
+    { label: sensitiveTabLabel, value: sensitiveClientCount, icon: '⚠️', color: 'var(--color-danger)' },
+    { label: 'Bugs en esta vista', value: sensitiveBugs.length, icon: '🐛', color: 'var(--color-primary)' },
+    { label: 'Críticos / Alta prioridad', value: sensitiveBugs.filter((b) => b.priority === 'Highest' || b.priority === 'High').length, icon: '🔴', color: 'var(--color-danger)' },
+    { label: 'Sin ETA', value: sensitiveBugs.filter((b) => !b.eta).length, icon: '⏳', color: 'var(--color-warning)' },
+  ];
+
+  // --- Grouped for main bugs tab ---
   const grouped = useMemo(() => {
     const map = {};
     for (const bug of bugs) {
@@ -212,20 +128,31 @@ export default function BugTracker({
         map[key].push(bug);
       }
     }
-
     for (const key of Object.keys(map)) {
       const list = map[key];
-      if (sortBy === 'priority') {
-        map[key] = [...list].sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 99) - (PRIORITY_ORDER[b.priority] ?? 99));
-      } else if (sortBy === 'date-desc') {
-        map[key] = [...list].sort((a, b) => b.reportedAt.localeCompare(a.reportedAt));
-      } else if (sortBy === 'date-asc') {
-        map[key] = [...list].sort((a, b) => a.reportedAt.localeCompare(b.reportedAt));
-      }
+      if (sortBy === 'priority') map[key] = [...list].sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 99) - (PRIORITY_ORDER[b.priority] ?? 99));
+      else if (sortBy === 'date-desc') map[key] = [...list].sort((a, b) => b.reportedAt.localeCompare(a.reportedAt));
+      else if (sortBy === 'date-asc') map[key] = [...list].sort((a, b) => a.reportedAt.localeCompare(b.reportedAt));
     }
-
     return Object.keys(map).sort((a, b) => a.localeCompare(b)).map((key) => ({ module: key, bugs: map[key] }));
   }, [bugs, sortBy]);
+
+  // --- Grouped for sensitive tab ---
+  const sensitiveGrouped = useMemo(() => {
+    const map = {};
+    for (const bug of sensitiveBugs) {
+      const matchingClients = (bug.affectedClients || []).filter((c) => nameSet.has(norm(c)));
+      for (const client of matchingClients) {
+        if (!map[client]) map[client] = [];
+        if (!map[client].find((b) => b.id === bug.id)) map[client].push(bug);
+      }
+    }
+    return Object.keys(map).sort((a, b) => a.localeCompare(b)).map((client) => ({
+      client,
+      bugs: map[client].sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 99) - (PRIORITY_ORDER[b.priority] ?? 99)),
+      isCurrent: activeNames.has(norm(client)),
+    }));
+  }, [sensitiveBugs, nameSet, activeNames]);
 
   if (loading) {
     return (
@@ -236,10 +163,22 @@ export default function BugTracker({
     );
   }
 
-  const activeSensitiveCount = sensitiveClients.filter((c) => c.currently_sensitive).length;
+  const activeSensitiveCount = activeNames.size;
+
+  const modals = (
+    <>
+      {selectedBug && <IssueModal issueKey={selectedBug.id} bug={selectedBug} onClose={onCloseModal} />}
+      {etaBug && <ETAModal bug={etaBug} onClose={onCloseETA} onSave={onSaveETA} onDelete={onDeleteETA} />}
+      {notesBug && <NotesModal bug={notesBug} user={user} onClose={onCloseNotes} onAddNote={onAddNote} onDeleteNote={onDeleteNote} onEditNote={onEditNote} />}
+      {consultBug && <ConsultarETAModal bug={consultBug} moduleInfo={MODULES[consultBug.miniApps?.[0] || consultBug.module] || {}} onClose={() => setConsultBug(null)} />}
+    </>
+  );
 
   return (
     <>
+      {/* Metrics — reactive to active tab and sensitive filters */}
+      <Metrics metrics={activeTab === 'sensitive' ? sensitiveMetrics : generalMetrics} loading={loading} />
+
       {/* Main tabs */}
       <div className="bt-main-tabs">
         <button
@@ -260,25 +199,107 @@ export default function BugTracker({
       </div>
 
       {activeTab === 'sensitive' ? (
-        <SensitiveView
-          allBugs={allBugs || bugs}
-          sensitiveClients={sensitiveClients}
-          onOpenBug={onOpenBug}
-          onOpenETA={onOpenETA}
-          onDeleteETA={onDeleteETA}
-          onOpenNotes={onOpenNotes}
-          etaBug={etaBug}
-          onCloseETA={onCloseETA}
-          onSaveETA={onSaveETA}
-          notesBug={notesBug}
-          onCloseNotes={onCloseNotes}
-          onAddNote={onAddNote}
-          onDeleteNote={onDeleteNote}
-          onEditNote={onEditNote}
-          user={user}
-          selectedBug={selectedBug}
-          onCloseModal={onCloseModal}
-        />
+        <>
+          {sensitiveClients.length === 0 ? (
+            <div className="bug-list-empty">
+              <span className="bug-list-empty-icon">⏳</span>
+              <p>Cargando lista de clientes sensibles…</p>
+            </div>
+          ) : (
+            <>
+              {/* Sub-tabs */}
+              <div className="sensitive-tabs">
+                {SENSITIVE_TABS.map((t) => (
+                  <button
+                    key={t.id}
+                    className={`sensitive-tab${sensitiveTab === t.id ? ' active' : ''}`}
+                    onClick={() => { setSensitiveTab(t.id); setExpanded({}); }}
+                  >
+                    {t.label}
+                    <span className="sensitive-tab-count">
+                      {t.id === 'all' ? sensitiveNames.size : t.id === 'active' ? activeNames.size : formerNames.size}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Status filter */}
+              <div className="sensitive-status-bar">
+                <span className="sensitive-status-label">Estado:</span>
+                <div className="sensitive-status-pills">
+                  {STATUSES.map((s) => (
+                    <button
+                      key={s}
+                      className={`sensitive-status-pill${statusFilter.includes(s) ? ' active' : ''}`}
+                      onClick={() => {
+                        setStatusFilter((prev) =>
+                          prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]
+                        );
+                        setExpanded({});
+                      }}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="app-bugs-toolbar">
+                <span className="app-bugs-count">
+                  {sensitiveBugs.length} bug{sensitiveBugs.length !== 1 ? 's' : ''} en {sensitiveGrouped.length} cliente{sensitiveGrouped.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+
+              {sensitiveGrouped.length === 0 ? (
+                <div className="bug-list-empty">
+                  <span className="bug-list-empty-icon">✅</span>
+                  <p>No hay bugs reportados para clientes en esta categoría.</p>
+                </div>
+              ) : (
+                <div className="bug-list">
+                  {sensitiveGrouped.map(({ client, bugs: clientBugs, isCurrent }) => {
+                    const isExpanded = expanded[client];
+                    const visible = isExpanded ? clientBugs : clientBugs.slice(0, PAGE_SIZE);
+                    const remaining = clientBugs.length - PAGE_SIZE;
+                    return (
+                      <div key={client} className="bug-module-group">
+                        <div className="bug-module-header">
+                          <div className="bug-module-title">
+                            <span className="bug-module-name">{client}</span>
+                            <span className="bug-module-count">{clientBugs.length} bug{clientBugs.length !== 1 ? 's' : ''}</span>
+                            <span className={`sensitive-badge${isCurrent ? ' sensitive-badge--active' : ' sensitive-badge--former'}`}>
+                              {isCurrent ? '🔴 Sensible actualmente' : '🟡 Fue sensible'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="bug-module-cards">
+                          {visible.map((bug) => (
+                            <BugCard
+                              key={bug.id}
+                              bug={bug}
+                              moduleInfo={MODULES[bug.miniApps?.[0] || bug.module] || {}}
+                              onConsultETA={(b) => setConsultBug(b)}
+                              onLoadETA={onOpenETA}
+                              onDeleteETA={onDeleteETA}
+                              onNotes={onOpenNotes}
+                              onOpen={onOpenBug}
+                            />
+                          ))}
+                          {!isExpanded && remaining > 0 && (
+                            <button className="bug-module-expand" onClick={() => setExpanded((p) => ({ ...p, [client]: true }))}>
+                              Ver {remaining} más…
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+          {modals}
+        </>
       ) : (
         <>
           <FilterBar
@@ -314,7 +335,6 @@ export default function BugTracker({
                 const isExpanded = expanded[module];
                 const visible = isExpanded ? moduleBugs : moduleBugs.slice(0, PAGE_SIZE);
                 const remaining = moduleBugs.length - PAGE_SIZE;
-
                 return (
                   <div key={module} className="bug-module-group">
                     <div className="bug-module-header">
@@ -348,38 +368,7 @@ export default function BugTracker({
               })}
             </div>
           )}
-
-          {selectedBug && (
-            <IssueModal issueKey={selectedBug.id} bug={selectedBug} onClose={onCloseModal} />
-          )}
-
-          {etaBug && (
-            <ETAModal
-              bug={etaBug}
-              onClose={onCloseETA}
-              onSave={onSaveETA}
-              onDelete={onDeleteETA}
-            />
-          )}
-
-          {notesBug && (
-            <NotesModal
-              bug={notesBug}
-              user={user}
-              onClose={onCloseNotes}
-              onAddNote={onAddNote}
-              onDeleteNote={onDeleteNote}
-              onEditNote={onEditNote}
-            />
-          )}
-
-          {consultBug && (
-            <ConsultarETAModal
-              bug={consultBug}
-              moduleInfo={MODULES[consultBug.miniApps?.[0] || consultBug.module] || {}}
-              onClose={() => setConsultBug(null)}
-            />
-          )}
+          {modals}
         </>
       )}
     </>
