@@ -75,6 +75,7 @@ export function AppLayout() {
   const [notesBug, setNotesBug] = useState(null);
   const [activeSection, setActiveSection] = useState('bug-tracker');
   const [sortBy, setSortBy] = useState('priority');
+  const [sensitiveClients, setSensitiveClients] = useState([]);
 
   async function loadData(isRefresh = false) {
     if (isRefresh) setRefreshing(true);
@@ -107,6 +108,13 @@ export function AppLayout() {
     loadData();
     const interval = setInterval(() => loadData(true), 5 * 60 * 1000); // auto-refresh every 5 min
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/sensitive-clients')
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setSensitiveClients(data); })
+      .catch(() => {});
   }, []);
 
   // Real-time notes via Supabase
@@ -248,6 +256,7 @@ export function AppLayout() {
               <BugTrackerMetrics bugs={filteredBugs} loading={loading} />
               <BugTracker
                 bugs={filteredBugs}
+                allBugs={bugs}
                 loading={loading}
                 filters={filters}
                 onFiltersChange={setFilters}
@@ -257,6 +266,7 @@ export function AppLayout() {
                 refreshing={refreshing}
                 selectedBug={selectedBug}
                 etaBug={etaBug}
+                sensitiveClients={sensitiveClients}
                 notesBug={notesBug}
                 onOpenBug={handleOpenBug}
                 onCloseModal={() => setSelectedBug(null)}
