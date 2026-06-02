@@ -8,6 +8,7 @@ import IssueModal from './IssueModal';
 import ConsultarETAModal from './ConsultarETAModal';
 
 const STATUSES = ['Parking Lot', 'Backlog', 'Discovery', 'For Development', 'Developing', 'Developed', 'Staging', 'Closed', 'Released'];
+const ACTIVE_STATUSES = ['Parking Lot', 'Backlog', 'Discovery', 'For Development', 'Developing', 'Developed', 'Staging'];
 const PRIORITIES = ['Highest', 'High', 'Medium', 'Low', 'Lowest'];
 const PRIORITY_ORDER = { Highest: 0, High: 1, Medium: 2, Low: 3, Lowest: 4 };
 const PAGE_SIZE = 15;
@@ -26,6 +27,7 @@ function SensitiveView({ allBugs, sensitiveClients, onOpenBug, onOpenETA, onDele
   const [sensitiveTab, setSensitiveTab] = useState('all');
   const [consultBug, setConsultBug] = useState(null);
   const [expanded, setExpanded] = useState({});
+  const [statusFilter, setStatusFilter] = useState('active'); // 'active' | 'all' | specific status
 
   const sensitiveNames = useMemo(() => new Set(sensitiveClients.map((c) => norm(c.name))), [sensitiveClients]);
   const activeNames = useMemo(() => new Set(sensitiveClients.filter((c) => c.currently_sensitive).map((c) => norm(c.name))), [sensitiveClients]);
@@ -34,10 +36,13 @@ function SensitiveView({ allBugs, sensitiveClients, onOpenBug, onOpenETA, onDele
   const nameSet = sensitiveTab === 'active' ? activeNames : sensitiveTab === 'former' ? formerNames : sensitiveNames;
 
   const filteredBugs = useMemo(() => {
-    return allBugs.filter((b) =>
-      (b.affectedClients || []).some((c) => nameSet.has(norm(c)))
-    );
-  }, [allBugs, nameSet]);
+    return allBugs.filter((b) => {
+      if (!(b.affectedClients || []).some((c) => nameSet.has(norm(c)))) return false;
+      if (statusFilter === 'active') return ACTIVE_STATUSES.includes(b.status);
+      if (statusFilter === 'all') return true;
+      return b.status === statusFilter;
+    });
+  }, [allBugs, nameSet, statusFilter]);
 
   // Group by client name (sensitive)
   const grouped = useMemo(() => {
@@ -82,6 +87,34 @@ function SensitiveView({ allBugs, sensitiveClients, onOpenBug, onOpenETA, onDele
             </span>
           </button>
         ))}
+      </div>
+
+      {/* Status filter */}
+      <div className="sensitive-status-bar">
+        <span className="sensitive-status-label">Estado:</span>
+        <div className="sensitive-status-pills">
+          <button
+            className={`sensitive-status-pill${statusFilter === 'active' ? ' active' : ''}`}
+            onClick={() => { setStatusFilter('active'); setExpanded({}); }}
+          >
+            Abiertos
+          </button>
+          {STATUSES.map((s) => (
+            <button
+              key={s}
+              className={`sensitive-status-pill${statusFilter === s ? ' active' : ''}`}
+              onClick={() => { setStatusFilter(s); setExpanded({}); }}
+            >
+              {s}
+            </button>
+          ))}
+          <button
+            className={`sensitive-status-pill${statusFilter === 'all' ? ' active' : ''}`}
+            onClick={() => { setStatusFilter('all'); setExpanded({}); }}
+          >
+            Todos
+          </button>
+        </div>
       </div>
 
       <div className="app-bugs-toolbar">
