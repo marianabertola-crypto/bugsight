@@ -27,7 +27,7 @@ function SensitiveView({ allBugs, sensitiveClients, onOpenBug, onOpenETA, onDele
   const [sensitiveTab, setSensitiveTab] = useState('all');
   const [consultBug, setConsultBug] = useState(null);
   const [expanded, setExpanded] = useState({});
-  const [statusFilter, setStatusFilter] = useState('active'); // 'active' | 'all' | specific status
+  const [statusFilter, setStatusFilter] = useState([]); // [] = default (exclude Closed/Released)
 
   const sensitiveNames = useMemo(() => new Set(sensitiveClients.map((c) => norm(c.name))), [sensitiveClients]);
   const activeNames = useMemo(() => new Set(sensitiveClients.filter((c) => c.currently_sensitive).map((c) => norm(c.name))), [sensitiveClients]);
@@ -38,9 +38,8 @@ function SensitiveView({ allBugs, sensitiveClients, onOpenBug, onOpenETA, onDele
   const filteredBugs = useMemo(() => {
     return allBugs.filter((b) => {
       if (!(b.affectedClients || []).some((c) => nameSet.has(norm(c)))) return false;
-      if (statusFilter === 'active') return ACTIVE_STATUSES.includes(b.status);
-      if (statusFilter === 'all') return true;
-      return b.status === statusFilter;
+      if (statusFilter.length) return statusFilter.includes(b.status);
+      return b.status !== 'Closed' && b.status !== 'Released';
     });
   }, [allBugs, nameSet, statusFilter]);
 
@@ -93,27 +92,20 @@ function SensitiveView({ allBugs, sensitiveClients, onOpenBug, onOpenETA, onDele
       <div className="sensitive-status-bar">
         <span className="sensitive-status-label">Estado:</span>
         <div className="sensitive-status-pills">
-          <button
-            className={`sensitive-status-pill${statusFilter === 'active' ? ' active' : ''}`}
-            onClick={() => { setStatusFilter('active'); setExpanded({}); }}
-          >
-            Abiertos
-          </button>
           {STATUSES.map((s) => (
             <button
               key={s}
-              className={`sensitive-status-pill${statusFilter === s ? ' active' : ''}`}
-              onClick={() => { setStatusFilter(s); setExpanded({}); }}
+              className={`sensitive-status-pill${statusFilter.includes(s) ? ' active' : ''}`}
+              onClick={() => {
+                setStatusFilter((prev) =>
+                  prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]
+                );
+                setExpanded({});
+              }}
             >
               {s}
             </button>
           ))}
-          <button
-            className={`sensitive-status-pill${statusFilter === 'all' ? ' active' : ''}`}
-            onClick={() => { setStatusFilter('all'); setExpanded({}); }}
-          >
-            Todos
-          </button>
         </div>
       </div>
 
