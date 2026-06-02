@@ -110,12 +110,11 @@ export default function BugTracker({
     { label: formatTodayLabel(), value: bugs.filter((b) => b.reportedAt === todayLocal()).length, icon: '📅', color: 'var(--color-success)' },
   ];
 
-  const sensitiveTabLabel = SENSITIVE_TABS.find((t) => t.id === sensitiveTab)?.label || 'Clientes';
   const sensitiveMetrics = [
-    { label: sensitiveTabLabel, value: sensitiveClientCount, icon: '⚠️', color: 'var(--color-danger)' },
-    { label: 'Bugs en esta vista', value: sensitiveBugs.length, icon: '🐛', color: 'var(--color-primary)' },
+    { label: 'Bugs activos', value: sensitiveBugs.length, icon: '🐛', color: 'var(--color-primary)' },
     { label: 'Críticos / Alta prioridad', value: sensitiveBugs.filter((b) => b.priority === 'Highest' || b.priority === 'High').length, icon: '🔴', color: 'var(--color-danger)' },
     { label: 'Sin ETA', value: sensitiveBugs.filter((b) => !b.eta).length, icon: '⏳', color: 'var(--color-warning)' },
+    { label: formatTodayLabel(), value: sensitiveBugs.filter((b) => b.reportedAt === todayLocal()).length, icon: '📅', color: 'var(--color-success)' },
   ];
 
   // --- Grouped for main bugs tab ---
