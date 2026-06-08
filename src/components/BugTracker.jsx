@@ -132,9 +132,11 @@ export default function BugTracker({
 
   const redListBugs = useMemo(() => {
     const source = allBugs || bugs;
-    console.log('[RedList] clients in sheet:', JSON.stringify([...redListNameSet].slice(0, 10)));
+    console.log('[RedList] raw client names from sheet (before norm):', JSON.stringify(redListClients.map(c => c.name)));
+    console.log('[RedList] clients in sheet (after norm):', JSON.stringify([...redListNameSet]));
+    const sqdmBugs = source.filter(b => (b.affectedClients||[]).some(c => norm(c).includes('sqdm')));
+    console.log('[RedList] bugs with sqdm in affectedClients:', sqdmBugs.length, sqdmBugs.map(b => ({id: b.id, clients: b.affectedClients})));
     const allClients = [...new Set(source.flatMap((b) => (b.affectedClients || []).map(norm)))];
-    console.log('[RedList] sample affectedClients from bugs:', JSON.stringify(allClients.slice(0, 10)));
     const matches = allClients.filter((c) => redListNameSet.has(c));
     console.log('[RedList] matching names:', JSON.stringify(matches));
     return source.filter((b) => {
