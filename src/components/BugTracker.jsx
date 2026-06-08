@@ -25,20 +25,19 @@ function norm(s) {
   return s?.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim() ?? '';
 }
 
-// Fuzzy normalization for Red List: strips [bracket] prefixes, date suffixes, and spaces
-// e.g. "[Inbound] Nuvemshop Brasil" → "nuvemshopbrasil"
-//      "XPLOY - February 2025"      → "xploy"
-//      "Tigo Paraguay- ene 2026"    → "tigoparaguay"
-function normRedList(s) {
-  if (!s) return '';
-  return s
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/\[.*?\]\s*/g, '')
-    .replace(/\s*[-–]\s*(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic|jan|mar|apr|aug|december|november|october|september|august|july|june|april|march|february|january)\s*\d{4}/gi, '')
-    .replace(/\s*[-–]\s*\d{4}/g, '')
-    .replace(/[.\s]/g, '')
-    .toLowerCase()
-    .trim();
+// Loose normalization: removes all punctuation and spaces for bidirectional contains matching
+// e.g. "[Inbound] Nuvemshop Brasil" → "inboundnuvemshopbrasil"
+//      "NuvemshopBrasil"            → "nuvemshopbrasil"  (contained in above ✓)
+//      "XPLOY - February 2025"      → "xployfebruary2025" (contains "xploy" ✓)
+function normLoose(s) {
+  return s?.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[\s\-_.,()[\]°'"]/g, '').toLowerCase() ?? '';
+}
+
+function matchesRedListName(jiraClient, redListNorm) {
+  const nc = normLoose(jiraClient);
+  if (!nc || !redListNorm) return false;
+  if (redListNorm.length < 3) return nc === redListNorm;
+  return nc.includes(redListNorm) || redListNorm.includes(nc);
 }
 
 function todayLocal() {
@@ -126,51 +125,55 @@ export default function BugTracker({
   const sensitiveClientCount = nameSet.size;
 
   // --- Red List data ---
+  // Build per-category arrays of {name, normName} for matching
   const redListByCategory = useMemo(() => {
     const map = {};
     for (const c of redListClients) {
       const cat = c.category;
-      if (!map[cat]) map[cat] = new Set();
-      map[cat].add(normRedList(c.name));
+      if (!map[cat]) map[cat] = [];
+      map[cat].push({ name: c.name, normName: normLoose(c.name) });
     }
     return map;
   }, [redListClients]);
 
-  const redListNameSet = useMemo(() => {
-    if (redListCategory === 'all') return new Set(redListClients.map((c) => normRedList(c.name)));
-    return redListByCategory[redListCategory] || new Set();
+  const activeRedList = useMemo(() => {
+    if (redListCategory === 'all')
+      return redListClients.map((c) => ({ name: c.name, normName: normLoose(c.name), category: c.category }));
+    return (redListByCategory[redListCategory] || []).map((c) => ({ ...c, category: redListCategory }));
   }, [redListClients, redListCategory, redListByCategory]);
 
   const redListBugs = useMemo(() => {
     return (allBugs || bugs).filter((b) => {
-      if (!(b.affectedClients || []).some((c) => redListNameSet.has(normRedList(c)))) return false;
+      const hasMatch = (b.affectedClients || []).some((jc) =>
+        activeRedList.some((rl) => matchesRedListName(jc, rl.normName))
+      );
+      if (!hasMatch) return false;
       if (redListStatusFilter.length) return redListStatusFilter.includes(b.status);
       return b.status !== 'Closed' && b.status !== 'Released';
     });
-  }, [allBugs, bugs, redListNameSet, redListStatusFilter]);
+  }, [allBugs, bugs, activeRedList, redListStatusFilter]);
 
   const redListGrouped = useMemo(() => {
     const map = {};
     for (const bug of redListBugs) {
-      const matchingClients = (bug.affectedClients || []).filter((c) => redListNameSet.has(normRedList(c)));
-      for (const client of matchingClients) {
-        if (!map[client]) map[client] = [];
-        if (!map[client].find((b) => b.id === bug.id)) map[client].push(bug);
+      for (const jc of (bug.affectedClients || [])) {
+        for (const rl of activeRedList) {
+          if (matchesRedListName(jc, rl.normName)) {
+            if (!map[rl.name]) map[rl.name] = { category: rl.category, bugs: [] };
+            if (!map[rl.name].bugs.find((b) => b.id === bug.id)) map[rl.name].bugs.push(bug);
+          }
+        }
       }
     }
-    return Object.keys(map).sort((a, b) => a.localeCompare(b)).map((client) => {
-      const clientData = redListClients.find((c) => norm(c.name) === norm(client));
-      return {
-        client,
-        category: clientData?.category || '',
-        bugs: map[client].sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 99) - (PRIORITY_ORDER[b.priority] ?? 99)),
-      };
-    });
-  }, [redListBugs, redListNameSet, redListClients]);
+    return Object.keys(map).sort((a, b) => a.localeCompare(b)).map((name) => ({
+      client: name,
+      category: map[name].category,
+      bugs: map[name].bugs.sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 99) - (PRIORITY_ORDER[b.priority] ?? 99)),
+    }));
+  }, [redListBugs, activeRedList]);
 
-  // Available categories in current data
   const availableCategories = useMemo(() => {
-    return RED_LIST_CATEGORIES.filter((cat) => redListByCategory[cat]?.size > 0);
+    return RED_LIST_CATEGORIES.filter((cat) => (redListByCategory[cat]?.length || 0) > 0);
   }, [redListByCategory]);
 
   // --- Metrics ---
@@ -408,7 +411,7 @@ export default function BugTracker({
                     onClick={() => { setRedListCategory(cat); setExpanded({}); }}
                   >
                     {cat}
-                    <span className="sensitive-tab-count">{redListByCategory[cat]?.size || 0}</span>
+                    <span className="sensitive-tab-count">{redListByCategory[cat]?.length || 0}</span>
                   </button>
                 ))}
               </div>
