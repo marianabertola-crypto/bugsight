@@ -126,7 +126,13 @@ export default function BugTracker({
   }, [redListClients, redListCategory, redListByCategory]);
 
   const redListBugs = useMemo(() => {
-    return (allBugs || bugs).filter((b) => {
+    const source = allBugs || bugs;
+    console.log('[RedList] clients in sheet:', [...redListNameSet].slice(0, 5));
+    const allClients = [...new Set(source.flatMap((b) => (b.affectedClients || []).map(norm)))];
+    console.log('[RedList] sample affectedClients from bugs:', allClients.slice(0, 5));
+    const matches = allClients.filter((c) => redListNameSet.has(c));
+    console.log('[RedList] matching names:', matches);
+    return source.filter((b) => {
       if (!(b.affectedClients || []).some((c) => redListNameSet.has(norm(c)))) return false;
       if (redListStatusFilter.length) return redListStatusFilter.includes(b.status);
       return b.status !== 'Closed' && b.status !== 'Released';
