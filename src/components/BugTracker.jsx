@@ -19,6 +19,8 @@ const SENSITIVE_TABS = [
   { id: 'former', label: 'Dejaron de estar sensibles' },
 ];
 
+const RED_LIST_CATEGORIES = ['Red List', 'Success Red List', 'Onboarding Red List'];
+
 function norm(s) {
   return s?.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim() ?? '';
 }
@@ -77,14 +79,19 @@ export default function BugTracker({
   onEditNote,
   user,
   sensitiveClients = [],
+  redListClients = [],
 }) {
   const [expanded, setExpanded] = useState({});
   const [consultBug, setConsultBug] = useState(null);
   const [activeTab, setActiveTab] = useState('bugs');
 
-  // Sensitive state lifted here so metrics can react to it
+  // Sensitive state
   const [sensitiveTab, setSensitiveTab] = useState('all');
   const [statusFilter, setStatusFilter] = useState([]);
+
+  // Red List state
+  const [redListCategory, setRedListCategory] = useState('all');
+  const [redListStatusFilter, setRedListStatusFilter] = useState([]);
 
   // --- Sensitive data ---
   const sensitiveNames = useMemo(() => new Set(sensitiveClients.map((c) => norm(c.name))), [sensitiveClients]);
@@ -102,6 +109,54 @@ export default function BugTracker({
 
   const sensitiveClientCount = nameSet.size;
 
+  // --- Red List data ---
+  const redListByCategory = useMemo(() => {
+    const map = {};
+    for (const c of redListClients) {
+      const cat = c.category;
+      if (!map[cat]) map[cat] = new Set();
+      map[cat].add(norm(c.name));
+    }
+    return map;
+  }, [redListClients]);
+
+  const redListNameSet = useMemo(() => {
+    if (redListCategory === 'all') return new Set(redListClients.map((c) => norm(c.name)));
+    return redListByCategory[redListCategory] || new Set();
+  }, [redListClients, redListCategory, redListByCategory]);
+
+  const redListBugs = useMemo(() => {
+    return (allBugs || bugs).filter((b) => {
+      if (!(b.affectedClients || []).some((c) => redListNameSet.has(norm(c)))) return false;
+      if (redListStatusFilter.length) return redListStatusFilter.includes(b.status);
+      return b.status !== 'Closed' && b.status !== 'Released';
+    });
+  }, [allBugs, bugs, redListNameSet, redListStatusFilter]);
+
+  const redListGrouped = useMemo(() => {
+    const map = {};
+    for (const bug of redListBugs) {
+      const matchingClients = (bug.affectedClients || []).filter((c) => redListNameSet.has(norm(c)));
+      for (const client of matchingClients) {
+        if (!map[client]) map[client] = [];
+        if (!map[client].find((b) => b.id === bug.id)) map[client].push(bug);
+      }
+    }
+    return Object.keys(map).sort((a, b) => a.localeCompare(b)).map((client) => {
+      const clientData = redListClients.find((c) => norm(c.name) === norm(client));
+      return {
+        client,
+        category: clientData?.category || '',
+        bugs: map[client].sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 99) - (PRIORITY_ORDER[b.priority] ?? 99)),
+      };
+    });
+  }, [redListBugs, redListNameSet, redListClients]);
+
+  // Available categories in current data
+  const availableCategories = useMemo(() => {
+    return RED_LIST_CATEGORIES.filter((cat) => redListByCategory[cat]?.size > 0);
+  }, [redListByCategory]);
+
   // --- Metrics ---
   const generalMetrics = [
     { label: 'Bugs activos', value: bugs.length, icon: '🐛', color: 'var(--color-primary)' },
@@ -115,6 +170,13 @@ export default function BugTracker({
     { label: 'Críticos / Alta prioridad', value: sensitiveBugs.filter((b) => b.priority === 'Highest' || b.priority === 'High').length, icon: '🔴', color: 'var(--color-danger)' },
     { label: 'Sin ETA', value: sensitiveBugs.filter((b) => !b.eta).length, icon: '⏳', color: 'var(--color-warning)' },
     { label: formatTodayLabel(), value: sensitiveBugs.filter((b) => b.reportedAt === todayLocal()).length, icon: '📅', color: 'var(--color-success)' },
+  ];
+
+  const redListMetrics = [
+    { label: 'Bugs activos', value: redListBugs.length, icon: '🐛', color: 'var(--color-primary)' },
+    { label: 'Críticos / Alta prioridad', value: redListBugs.filter((b) => b.priority === 'Highest' || b.priority === 'High').length, icon: '🔴', color: 'var(--color-danger)' },
+    { label: 'Sin ETA', value: redListBugs.filter((b) => !b.eta).length, icon: '⏳', color: 'var(--color-warning)' },
+    { label: formatTodayLabel(), value: redListBugs.filter((b) => b.reportedAt === todayLocal()).length, icon: '📅', color: 'var(--color-success)' },
   ];
 
   // --- Grouped for main bugs tab ---
@@ -175,8 +237,11 @@ export default function BugTracker({
 
   return (
     <>
-      {/* Metrics — reactive to active tab and sensitive filters */}
-      <Metrics metrics={activeTab === 'sensitive' ? sensitiveMetrics : generalMetrics} loading={loading} />
+      {/* Metrics — reactive to active tab */}
+      <Metrics
+        metrics={activeTab === 'sensitive' ? sensitiveMetrics : activeTab === 'redlist' ? redListMetrics : generalMetrics}
+        loading={loading}
+      />
 
       {/* Main tabs */}
       <div className="bt-main-tabs">
@@ -193,6 +258,15 @@ export default function BugTracker({
           Clientes sensibles
           {activeSensitiveCount > 0 && (
             <span className="bt-main-tab-badge">{activeSensitiveCount} activos</span>
+          )}
+        </button>
+        <button
+          className={`bt-main-tab${activeTab === 'redlist' ? ' active' : ''}`}
+          onClick={() => setActiveTab('redlist')}
+        >
+          Red List
+          {redListClients.length > 0 && (
+            <span className="bt-main-tab-badge bt-main-tab-badge--red">{redListClients.length}</span>
           )}
         </button>
       </div>
@@ -269,6 +343,111 @@ export default function BugTracker({
                             <span className={`sensitive-badge${isCurrent ? ' sensitive-badge--active' : ' sensitive-badge--former'}`}>
                               {isCurrent ? '🔴 Sensible actualmente' : '🟡 Fue sensible'}
                             </span>
+                          </div>
+                        </div>
+                        <div className="bug-module-cards">
+                          {visible.map((bug) => (
+                            <BugCard
+                              key={bug.id}
+                              bug={bug}
+                              moduleInfo={MODULES[bug.miniApps?.[0] || bug.module] || {}}
+                              onConsultETA={(b) => setConsultBug(b)}
+                              onLoadETA={onOpenETA}
+                              onDeleteETA={onDeleteETA}
+                              onNotes={onOpenNotes}
+                              onOpen={onOpenBug}
+                            />
+                          ))}
+                          {!isExpanded && remaining > 0 && (
+                            <button className="bug-module-expand" onClick={() => setExpanded((p) => ({ ...p, [client]: true }))}>
+                              Ver {remaining} más…
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+          {modals}
+        </>
+      ) : activeTab === 'redlist' ? (
+        <>
+          {redListClients.length === 0 ? (
+            <div className="bug-list-empty">
+              <span className="bug-list-empty-icon">⏳</span>
+              <p>Cargando lista de clientes Red List…</p>
+            </div>
+          ) : (
+            <>
+              {/* Category filter */}
+              <div className="sensitive-tabs">
+                <button
+                  className={`sensitive-tab${redListCategory === 'all' ? ' active' : ''}`}
+                  onClick={() => { setRedListCategory('all'); setExpanded({}); }}
+                >
+                  Todos
+                  <span className="sensitive-tab-count">{redListClients.length}</span>
+                </button>
+                {availableCategories.map((cat) => (
+                  <button
+                    key={cat}
+                    className={`sensitive-tab${redListCategory === cat ? ' active' : ''}`}
+                    onClick={() => { setRedListCategory(cat); setExpanded({}); }}
+                  >
+                    {cat}
+                    <span className="sensitive-tab-count">{redListByCategory[cat]?.size || 0}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Status filter */}
+              <div className="sensitive-status-bar">
+                <span className="sensitive-status-label">Estado:</span>
+                <div className="sensitive-status-pills">
+                  {STATUSES.map((s) => (
+                    <button
+                      key={s}
+                      className={`sensitive-status-pill${redListStatusFilter.includes(s) ? ' active' : ''}`}
+                      onClick={() => {
+                        setRedListStatusFilter((prev) =>
+                          prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]
+                        );
+                        setExpanded({});
+                      }}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="app-bugs-toolbar">
+                <span className="app-bugs-count">
+                  {redListBugs.length} bug{redListBugs.length !== 1 ? 's' : ''} en {redListGrouped.length} cliente{redListGrouped.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+
+              {redListGrouped.length === 0 ? (
+                <div className="bug-list-empty">
+                  <span className="bug-list-empty-icon">✅</span>
+                  <p>No hay bugs reportados para clientes en esta categoría.</p>
+                </div>
+              ) : (
+                <div className="bug-list">
+                  {redListGrouped.map(({ client, category, bugs: clientBugs }) => {
+                    const isExpanded = expanded[client];
+                    const visible = isExpanded ? clientBugs : clientBugs.slice(0, PAGE_SIZE);
+                    const remaining = clientBugs.length - PAGE_SIZE;
+                    return (
+                      <div key={client} className="bug-module-group">
+                        <div className="bug-module-header">
+                          <div className="bug-module-title">
+                            <span className="bug-module-name">{client}</span>
+                            <span className="bug-module-count">{clientBugs.length} bug{clientBugs.length !== 1 ? 's' : ''}</span>
+                            <span className="sensitive-badge sensitive-badge--redlist">{category}</span>
                           </div>
                         </div>
                         <div className="bug-module-cards">

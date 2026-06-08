@@ -1,6 +1,5 @@
-// Vercel serverless function — fetches sensitive clients from Google Apps Script
-// Required env var: SENSITIVE_CLIENTS_URL
-// Cache: 1 hour via Cache-Control header
+// Vercel serverless function — fetches Red List clients from Google Apps Script
+// Required env var: SENSITIVE_CLIENTS_URL (shared with sensitive-clients)
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -13,7 +12,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const response = await fetch(`${SENSITIVE_CLIENTS_URL}?type=sensitive`);
+    const response = await fetch(`${SENSITIVE_CLIENTS_URL}?type=redlist`);
     if (!response.ok) {
       throw new Error(`Apps Script error: ${response.status}`);
     }

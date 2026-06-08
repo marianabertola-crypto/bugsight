@@ -39,6 +39,7 @@ export function AppLayout() {
   const [activeSection, setActiveSection] = useState('bug-tracker');
   const [sortBy, setSortBy] = useState('priority');
   const [sensitiveClients, setSensitiveClients] = useState([]);
+  const [redListClients, setRedListClients] = useState([]);
 
   async function loadData(isRefresh = false) {
     if (isRefresh) setRefreshing(true);
@@ -77,6 +78,10 @@ export function AppLayout() {
     fetch('/api/sensitive-clients')
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data)) setSensitiveClients(data); })
+      .catch(() => {});
+    fetch('/api/red-list-clients')
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setRedListClients(data); })
       .catch(() => {});
   }, []);
 
@@ -229,6 +234,7 @@ export function AppLayout() {
                 selectedBug={selectedBug}
                 etaBug={etaBug}
                 sensitiveClients={sensitiveClients}
+                redListClients={redListClients}
                 notesBug={notesBug}
                 onOpenBug={handleOpenBug}
                 onCloseModal={() => setSelectedBug(null)}

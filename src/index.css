@@ -453,3 +453,5 @@ a { color: var(--color-primary); text-decoration: none; }
 .sensitive-status-pill { font-size: 12px; font-weight: 500; padding: 4px 12px; border-radius: 20px; border: 1.5px solid var(--color-border); background: var(--color-bg); color: var(--color-text-secondary); cursor: pointer; transition: all .15s; white-space: nowrap; }
 .sensitive-status-pill:hover { border-color: var(--color-primary); color: var(--color-primary); }
 .sensitive-status-pill.active { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+.sensitive-badge--redlist { background: #fee2e2; color: #991b1b; }
+.bt-main-tab-badge--red { background: #fee2e2; color: #dc2626; }
