@@ -262,18 +262,12 @@ export default function BugTracker({
           onClick={() => setActiveTab('sensitive')}
         >
           Clientes sensibles
-          {activeSensitiveCount > 0 && (
-            <span className="bt-main-tab-badge">{activeSensitiveCount} activos</span>
-          )}
         </button>
         <button
           className={`bt-main-tab${activeTab === 'redlist' ? ' active' : ''}`}
           onClick={() => setActiveTab('redlist')}
         >
           Red List
-          {redListClients.length > 0 && (
-            <span className="bt-main-tab-badge bt-main-tab-badge--red">{redListClients.length}</span>
-          )}
         </button>
       </div>
 
