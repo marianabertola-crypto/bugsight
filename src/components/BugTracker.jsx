@@ -127,11 +127,11 @@ export default function BugTracker({
 
   const redListBugs = useMemo(() => {
     const source = allBugs || bugs;
-    console.log('[RedList] clients in sheet:', [...redListNameSet].slice(0, 5));
+    console.log('[RedList] clients in sheet:', JSON.stringify([...redListNameSet].slice(0, 10)));
     const allClients = [...new Set(source.flatMap((b) => (b.affectedClients || []).map(norm)))];
-    console.log('[RedList] sample affectedClients from bugs:', allClients.slice(0, 5));
+    console.log('[RedList] sample affectedClients from bugs:', JSON.stringify(allClients.slice(0, 10)));
     const matches = allClients.filter((c) => redListNameSet.has(c));
-    console.log('[RedList] matching names:', matches);
+    console.log('[RedList] matching names:', JSON.stringify(matches));
     return source.filter((b) => {
       if (!(b.affectedClients || []).some((c) => redListNameSet.has(norm(c)))) return false;
       if (redListStatusFilter.length) return redListStatusFilter.includes(b.status);
