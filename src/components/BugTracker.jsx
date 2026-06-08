@@ -100,7 +100,12 @@ export default function BugTracker({
   const nameSet = sensitiveTab === 'active' ? activeNames : sensitiveTab === 'former' ? formerNames : sensitiveNames;
 
   const sensitiveBugs = useMemo(() => {
-    return (allBugs || bugs).filter((b) => {
+    const source = allBugs || bugs;
+    console.log('[Sensitive] clients in sheet:', JSON.stringify([...nameSet].slice(0, 10)));
+    const allClients = [...new Set(source.flatMap((b) => (b.affectedClients || []).map(norm)))];
+    console.log('[Sensitive] sample affectedClients from bugs:', JSON.stringify(allClients.slice(0, 10)));
+    console.log('[Sensitive] matching names:', JSON.stringify(allClients.filter((c) => nameSet.has(c))));
+    return source.filter((b) => {
       if (!(b.affectedClients || []).some((c) => nameSet.has(norm(c)))) return false;
       if (statusFilter.length) return statusFilter.includes(b.status);
       return b.status !== 'Closed' && b.status !== 'Released';
