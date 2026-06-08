@@ -25,6 +25,22 @@ function norm(s) {
   return s?.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim() ?? '';
 }
 
+// Fuzzy normalization for Red List: strips [bracket] prefixes, date suffixes, and spaces
+// e.g. "[Inbound] Nuvemshop Brasil" → "nuvemshopbrasil"
+//      "XPLOY - February 2025"      → "xploy"
+//      "Tigo Paraguay- ene 2026"    → "tigoparaguay"
+function normRedList(s) {
+  if (!s) return '';
+  return s
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/\[.*?\]\s*/g, '')
+    .replace(/\s*[-–]\s*(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic|jan|mar|apr|aug|december|november|october|september|august|july|june|april|march|february|january)\s*\d{4}/gi, '')
+    .replace(/\s*[-–]\s*\d{4}/g, '')
+    .replace(/[.\s]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
 function todayLocal() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -100,12 +116,7 @@ export default function BugTracker({
   const nameSet = sensitiveTab === 'active' ? activeNames : sensitiveTab === 'former' ? formerNames : sensitiveNames;
 
   const sensitiveBugs = useMemo(() => {
-    const source = allBugs || bugs;
-    console.log('[Sensitive] clients in sheet:', JSON.stringify([...nameSet].slice(0, 10)));
-    const allClients = [...new Set(source.flatMap((b) => (b.affectedClients || []).map(norm)))];
-    console.log('[Sensitive] sample affectedClients from bugs:', JSON.stringify(allClients.slice(0, 10)));
-    console.log('[Sensitive] matching names:', JSON.stringify(allClients.filter((c) => nameSet.has(c))));
-    return source.filter((b) => {
+    return (allBugs || bugs).filter((b) => {
       if (!(b.affectedClients || []).some((c) => nameSet.has(norm(c)))) return false;
       if (statusFilter.length) return statusFilter.includes(b.status);
       return b.status !== 'Closed' && b.status !== 'Released';
@@ -120,27 +131,19 @@ export default function BugTracker({
     for (const c of redListClients) {
       const cat = c.category;
       if (!map[cat]) map[cat] = new Set();
-      map[cat].add(norm(c.name));
+      map[cat].add(normRedList(c.name));
     }
     return map;
   }, [redListClients]);
 
   const redListNameSet = useMemo(() => {
-    if (redListCategory === 'all') return new Set(redListClients.map((c) => norm(c.name)));
+    if (redListCategory === 'all') return new Set(redListClients.map((c) => normRedList(c.name)));
     return redListByCategory[redListCategory] || new Set();
   }, [redListClients, redListCategory, redListByCategory]);
 
   const redListBugs = useMemo(() => {
-    const source = allBugs || bugs;
-    console.log('[RedList] raw client names from sheet (before norm):', JSON.stringify(redListClients.map(c => c.name)));
-    console.log('[RedList] clients in sheet (after norm):', JSON.stringify([...redListNameSet]));
-    const sqdmBugs = source.filter(b => (b.affectedClients||[]).some(c => norm(c).includes('sqdm')));
-    console.log('[RedList] bugs with sqdm in affectedClients:', sqdmBugs.length, sqdmBugs.map(b => ({id: b.id, clients: b.affectedClients})));
-    const allClients = [...new Set(source.flatMap((b) => (b.affectedClients || []).map(norm)))];
-    const matches = allClients.filter((c) => redListNameSet.has(c));
-    console.log('[RedList] matching names:', JSON.stringify(matches));
-    return source.filter((b) => {
-      if (!(b.affectedClients || []).some((c) => redListNameSet.has(norm(c)))) return false;
+    return (allBugs || bugs).filter((b) => {
+      if (!(b.affectedClients || []).some((c) => redListNameSet.has(normRedList(c)))) return false;
       if (redListStatusFilter.length) return redListStatusFilter.includes(b.status);
       return b.status !== 'Closed' && b.status !== 'Released';
     });
@@ -149,7 +152,7 @@ export default function BugTracker({
   const redListGrouped = useMemo(() => {
     const map = {};
     for (const bug of redListBugs) {
-      const matchingClients = (bug.affectedClients || []).filter((c) => redListNameSet.has(norm(c)));
+      const matchingClients = (bug.affectedClients || []).filter((c) => redListNameSet.has(normRedList(c)));
       for (const client of matchingClients) {
         if (!map[client]) map[client] = [];
         if (!map[client].find((b) => b.id === bug.id)) map[client].push(bug);
