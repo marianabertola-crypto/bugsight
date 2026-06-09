@@ -133,7 +133,7 @@ async function recordNotification(bugId, clientName, clientType) {
   const url = `${process.env.VITE_SUPABASE_URL}/rest/v1/notified_bugs`;
   await fetch(url, {
     method: 'POST',
-    headers: { ...supabaseHeaders(), Prefer: 'return=minimal' },
+    headers: { ...supabaseHeaders(), Prefer: 'resolution=ignore-duplicates,return=minimal' },
     body: JSON.stringify({ bug_id: bugId, client_name: clientName, client_type: clientType }),
   });
 }
