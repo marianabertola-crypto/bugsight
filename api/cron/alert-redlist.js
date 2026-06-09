@@ -40,12 +40,24 @@ function norm(s) {
   return s?.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim() ?? '';
 }
 
-function normLoose(s) {
-  return s?.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[\s\-_.,()[\]°'"]/g, '').toLowerCase() ?? '';
+// Strips [bracket] prefixes, date suffixes and spaces for exact matching
+// "[Inbound] Nuvemshop Brasil" → "nuvemshopbrasil"
+// "[PRODE 2026] FBF"           → "fbf"
+// "XPLOY - February 2025"      → "xploy"
+function normForRedList(s) {
+  if (!s) return '';
+  return s
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/\[.*?\]\s*/g, '')
+    .replace(/\s*[-–]\s*(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic|january|february|march|april|may|june|july|august|september|october|november|december)\s*\d{4}/gi, '')
+    .replace(/\s*[-–]\s*\d{4}/g, '')
+    .replace(/[.\s,()°'"]/g, '')
+    .toLowerCase()
+    .trim();
 }
 
 function matchesRedListName(jiraClient, redListNorm) {
-  return norm(jiraClient) === redListNorm;
+  return normForRedList(jiraClient) === redListNorm;
 }
 
 // ── Module extraction ─────────────────────────────────────────────────────────
@@ -157,12 +169,12 @@ function buildSlackMessage(bug, clientName) {
     : moduleInfo.pm || 'Sin PM asignado';
   const jiraUrl = `${JIRA_BASE_URL}/browse/${bug.id}`;
   return [
-    '🚨 *Cliente en Red List*',
+    `:rotating_light: Un cliente en churn risk nos reportó este error:`,
     `*Cliente:* ${clientName}`,
     `*Bug:* <${jiraUrl}|${bug.id} ${bug.title}>`,
     `*Módulo:* ${bug.module} — PM: ${pmMention}`,
-    '',
-    '¿Podríamos darle prioridad, por favor? Muchas gracias!',
+    `¿Podríamos darle prioridad, por favor? :pray::skin-tone-2:`,
+    `Muchas gracias!`,
   ].join('\n');
 }
 
@@ -179,7 +191,7 @@ export default async function handler(req, res) {
     ]);
 
     const sensitiveSet = new Set(sensitiveClients.map((c) => norm(c.name)));
-    const redListNorms = redListClients.map((c) => ({ name: c.name, normName: normLoose(c.name) }));
+    const redListNorms = redListClients.map((c) => ({ name: c.name, normName: normForRedList(c.name) }));
 
     let notified = 0;
     const results = [];

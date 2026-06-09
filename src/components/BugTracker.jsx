@@ -25,12 +25,24 @@ function norm(s) {
   return s?.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim() ?? '';
 }
 
+function normForRedList(s) {
+  if (!s) return '';
+  return s
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/\[.*?\]\s*/g, '')
+    .replace(/\s*[-–]\s*(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic|january|february|march|april|may|june|july|august|september|october|november|december)\s*\d{4}/gi, '')
+    .replace(/\s*[-–]\s*\d{4}/g, '')
+    .replace(/[.\s,()°'"]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
 function normLoose(s) {
-  return norm(s);
+  return normForRedList(s);
 }
 
 function matchesRedListName(jiraClient, redListNorm) {
-  return norm(jiraClient) === redListNorm;
+  return normForRedList(jiraClient) === redListNorm;
 }
 
 function todayLocal() {
