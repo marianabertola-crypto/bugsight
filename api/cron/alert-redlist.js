@@ -77,7 +77,7 @@ function extractModule(miniAppsField, title) {
 async function fetchRecentBugs() {
   const { JIRA_EMAIL, JIRA_TOKEN } = process.env;
   const credentials = Buffer.from(`${JIRA_EMAIL}:${JIRA_TOKEN}`).toString('base64');
-  const jql = 'issuetype = Bug AND project != HUREP AND created >= "-15m" ORDER BY created DESC';
+  const jql = 'issuetype = Bug AND project != HUREP AND updated >= "-15m" ORDER BY updated DESC';
   const fields = 'summary,status,created,customfield_10071,customfield_10046';
   const params = new URLSearchParams({ jql, fields, maxResults: 50 });
 
