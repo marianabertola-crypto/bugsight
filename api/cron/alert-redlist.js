@@ -187,6 +187,11 @@ export default async function handler(req, res) {
 
     let notified = 0;
     const results = [];
+    const debug = {
+      sensitiveCount: sensitiveClients.length,
+      redListCount: redListClients.length,
+      bugs: recentBugs.map((b) => ({ id: b.id, affectedClients: b.affectedClients })),
+    };
 
     for (const bug of recentBugs) {
       if (!bug.affectedClients?.length) continue;
@@ -227,7 +232,7 @@ export default async function handler(req, res) {
     }
 
     console.log(`[alert-redlist] checked=${recentBugs.length} notified=${notified}`);
-    return res.status(200).json({ ok: true, checked: recentBugs.length, notified, results });
+    return res.status(200).json({ ok: true, checked: recentBugs.length, notified, results, debug });
   } catch (err) {
     console.error('[alert-redlist]', err);
     return res.status(500).json({ error: err.message });
