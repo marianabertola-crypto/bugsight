@@ -142,6 +142,11 @@ async function recordNotification(bugId, clientName, clientType) {
 // ── Slack ────────────────────────────────────────────────────────────────────
 
 async function sendSlackMessage(text) {
+  const { ok } = await sendSlackMessageDebug(text);
+  return ok;
+}
+
+async function sendSlackMessageDebug(text) {
   const { SLACK_BOT_TOKEN } = process.env;
   const res = await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
@@ -150,7 +155,7 @@ async function sendSlackMessage(text) {
   });
   const data = await res.json();
   if (!data.ok) console.error('[Slack]', data.error);
-  return data.ok;
+  return { ok: data.ok, error: data.error };
 }
 
 function buildSlackMessage(bug, clientName) {
@@ -234,7 +239,8 @@ export default async function handler(req, res) {
       if (!matchedClient) continue;
 
       const text = buildSlackMessage(bug, matchedClient);
-      const sent = await sendSlackMessage(text);
+      const { ok: sent, error: slackError } = await sendSlackMessageDebug(text);
+      debug[`slack_${bug.id}`] = sent ? 'ok' : slackError;
       if (sent) {
         await recordNotification(bug.id, matchedClient, clientType);
         notified++;
