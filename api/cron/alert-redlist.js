@@ -187,10 +187,19 @@ export default async function handler(req, res) {
 
     let notified = 0;
     const results = [];
+    const sensitiveFirst10 = [...sensitiveSet].slice(0, 10);
+    const edenorNorm = norm('Edenor');
     const debug = {
       sensitiveCount: sensitiveClients.length,
       redListCount: redListClients.length,
-      bugs: recentBugs.map((b) => ({ id: b.id, affectedClients: b.affectedClients })),
+      sensitiveFirst10,
+      edenorNorm,
+      sensitiveHasEdenor: sensitiveSet.has(edenorNorm),
+      bugs: recentBugs.map((b) => ({
+        id: b.id,
+        affectedClients: b.affectedClients,
+        normClients: (b.affectedClients || []).map(norm),
+      })),
     };
 
     for (const bug of recentBugs) {
