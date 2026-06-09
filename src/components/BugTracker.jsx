@@ -36,7 +36,12 @@ function normLoose(s) {
 function matchesRedListName(jiraClient, redListNorm) {
   const nc = normLoose(jiraClient);
   if (!nc || !redListNorm) return false;
-  if (redListNorm.length < 3) return nc === redListNorm;
+  if (nc === redListNorm) return true;
+  if (nc.length < 3 || redListNorm.length < 3) return false;
+  // Ratio check: shorter must be ≥60% of longer to avoid false positives on long sheet names
+  const shorter = Math.min(nc.length, redListNorm.length);
+  const longer = Math.max(nc.length, redListNorm.length);
+  if (shorter / longer < 0.6) return false;
   return nc.includes(redListNorm) || redListNorm.includes(nc);
 }
 
