@@ -25,24 +25,12 @@ function norm(s) {
   return s?.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim() ?? '';
 }
 
-// Loose normalization: removes all punctuation and spaces for bidirectional contains matching
-// e.g. "[Inbound] Nuvemshop Brasil" → "inboundnuvemshopbrasil"
-//      "NuvemshopBrasil"            → "nuvemshopbrasil"  (contained in above ✓)
-//      "XPLOY - February 2025"      → "xployfebruary2025" (contains "xploy" ✓)
 function normLoose(s) {
-  return s?.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[\s\-_.,()[\]°'"]/g, '').toLowerCase() ?? '';
+  return norm(s);
 }
 
 function matchesRedListName(jiraClient, redListNorm) {
-  const nc = normLoose(jiraClient);
-  if (!nc || !redListNorm) return false;
-  if (nc === redListNorm) return true;
-  if (nc.length < 3 || redListNorm.length < 3) return false;
-  // Ratio check: shorter must be ≥60% of longer to avoid false positives on long sheet names
-  const shorter = Math.min(nc.length, redListNorm.length);
-  const longer = Math.max(nc.length, redListNorm.length);
-  if (shorter / longer < 0.6) return false;
-  return nc.includes(redListNorm) || redListNorm.includes(nc);
+  return norm(jiraClient) === redListNorm;
 }
 
 function todayLocal() {

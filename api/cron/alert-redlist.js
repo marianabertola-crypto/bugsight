@@ -45,14 +45,7 @@ function normLoose(s) {
 }
 
 function matchesRedListName(jiraClient, redListNorm) {
-  const nc = normLoose(jiraClient);
-  if (!nc || !redListNorm) return false;
-  if (nc === redListNorm) return true;
-  if (nc.length < 3 || redListNorm.length < 3) return false;
-  const shorter = Math.min(nc.length, redListNorm.length);
-  const longer = Math.max(nc.length, redListNorm.length);
-  if (shorter / longer < 0.6) return false;
-  return nc.includes(redListNorm) || redListNorm.includes(nc);
+  return norm(jiraClient) === redListNorm;
 }
 
 // ── Module extraction ─────────────────────────────────────────────────────────
