@@ -4,7 +4,7 @@
 //                    SLACK_BOT_TOKEN, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
 
 const JIRA_BASE_URL = 'https://humand.atlassian.net';
-const SLACK_CHANNEL = 'produc-etas-test';
+const SLACK_CHANNEL = 'product-etas-test';
 
 // Module → PM Slack ID map
 const MODULES = {
