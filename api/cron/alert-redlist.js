@@ -204,7 +204,9 @@ export default async function handler(req, res) {
 
     for (const bug of recentBugs) {
       if (!bug.affectedClients?.length) continue;
-      if (await isAlreadyNotified(bug.id)) continue;
+      const alreadyNotified = await isAlreadyNotified(bug.id);
+      debug[`alreadyNotified_${bug.id}`] = alreadyNotified;
+      if (alreadyNotified) continue;
 
       // Find first matching client (sensitive takes priority)
       let matchedClient = null;
