@@ -1,12 +1,11 @@
 // Vercel Cron Job — runs every 10 minutes
-// Detects new bugs for sensitive/red list clients and notifies Slack
+// Detects new/updated bugs for sensitive/red list clients and notifies Slack
 // Required env vars: JIRA_EMAIL, JIRA_TOKEN, SENSITIVE_CLIENTS_URL,
 //                    SLACK_BOT_TOKEN, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
 
 const JIRA_BASE_URL = 'https://humand.atlassian.net';
 const SLACK_CHANNEL = 'product-etas-test';
 
-// Module → PM Slack ID map
 const MODULES = {
   Acknowledgements: { pm: 'Delfina Pipan', slackId: 'U067SMZ18KB' },
   Anniversaries: { pm: 'Barbara Aliprandi', slackId: 'U05TC8QBX39' },
@@ -35,7 +34,7 @@ const MODULES = {
   Workflows: { pm: 'Martin Ciccioli', slackId: 'U02SEQUGJ78' },
 };
 
-// ── Normalization ────────────────────────────────────────────────────────────
+// ── Normalization ─────────────────────────────────────────────────────────────
 
 function norm(s) {
   return s?.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim() ?? '';
@@ -51,7 +50,7 @@ function matchesRedListName(jiraClient, redListNorm) {
   return nc.includes(redListNorm) || redListNorm.includes(nc);
 }
 
-// ── Module extraction ────────────────────────────────────────────────────────
+// ── Module extraction ─────────────────────────────────────────────────────────
 
 function extractModule(miniAppsField, title) {
   if (miniAppsField?.length) {
@@ -72,7 +71,7 @@ function extractModule(miniAppsField, title) {
   return 'General';
 }
 
-// ── Jira ─────────────────────────────────────────────────────────────────────
+// ── Jira ──────────────────────────────────────────────────────────────────────
 
 async function fetchRecentBugs() {
   const { JIRA_EMAIL, JIRA_TOKEN } = process.env;
@@ -102,7 +101,7 @@ async function fetchRecentBugs() {
   });
 }
 
-// ── Google Sheets (Apps Script) ──────────────────────────────────────────────
+// ── Google Sheets ─────────────────────────────────────────────────────────────
 
 async function fetchClients(type) {
   const { SENSITIVE_CLIENTS_URL } = process.env;
@@ -116,15 +115,15 @@ async function fetchClients(type) {
   }
 }
 
-// ── Supabase ─────────────────────────────────────────────────────────────────
+// ── Supabase ──────────────────────────────────────────────────────────────────
 
 function supabaseHeaders() {
   const key = process.env.VITE_SUPABASE_ANON_KEY;
   return { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' };
 }
 
-async function isAlreadyNotified(bugId) {
-  const url = `${process.env.VITE_SUPABASE_URL}/rest/v1/notified_bugs?bug_id=eq.${bugId}&select=bug_id`;
+async function isAlreadyNotified(bugId, clientName) {
+  const url = `${process.env.VITE_SUPABASE_URL}/rest/v1/notified_bugs?bug_id=eq.${encodeURIComponent(bugId)}&client_name=eq.${encodeURIComponent(clientName)}&select=bug_id`;
   const res = await fetch(url, { headers: supabaseHeaders() });
   const data = await res.json();
   return Array.isArray(data) && data.length > 0;
@@ -139,14 +138,9 @@ async function recordNotification(bugId, clientName, clientType) {
   });
 }
 
-// ── Slack ────────────────────────────────────────────────────────────────────
+// ── Slack ─────────────────────────────────────────────────────────────────────
 
 async function sendSlackMessage(text) {
-  const { ok } = await sendSlackMessageDebug(text);
-  return ok;
-}
-
-async function sendSlackMessageDebug(text) {
   const { SLACK_BOT_TOKEN } = process.env;
   const res = await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
@@ -155,7 +149,7 @@ async function sendSlackMessageDebug(text) {
   });
   const data = await res.json();
   if (!data.ok) console.error('[Slack]', data.error);
-  return { ok: data.ok, error: data.error };
+  return data.ok;
 }
 
 function buildSlackMessage(bug, clientName) {
@@ -164,7 +158,6 @@ function buildSlackMessage(bug, clientName) {
     ? `<@${moduleInfo.slackId}>`
     : moduleInfo.pm || 'Sin PM asignado';
   const jiraUrl = `${JIRA_BASE_URL}/browse/${bug.id}`;
-
   return [
     '🚨 *Cliente en Red List*',
     `*Cliente:* ${clientName}`,
@@ -175,7 +168,7 @@ function buildSlackMessage(bug, clientName) {
   ].join('\n');
 }
 
-// ── Handler ──────────────────────────────────────────────────────────────────
+// ── Handler ───────────────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
@@ -192,64 +185,41 @@ export default async function handler(req, res) {
 
     let notified = 0;
     const results = [];
-    const sensitiveFirst10 = [...sensitiveSet].slice(0, 10);
-    const edenorNorm = norm('Edenor');
-    const debug = {
-      sensitiveCount: sensitiveClients.length,
-      redListCount: redListClients.length,
-      sensitiveFirst10,
-      edenorNorm,
-      sensitiveHasEdenor: sensitiveSet.has(edenorNorm),
-      bugs: recentBugs.map((b) => ({
-        id: b.id,
-        affectedClients: b.affectedClients,
-        normClients: (b.affectedClients || []).map(norm),
-      })),
-    };
 
     for (const bug of recentBugs) {
       if (!bug.affectedClients?.length) continue;
-      const alreadyNotified = await isAlreadyNotified(bug.id);
-      debug[`alreadyNotified_${bug.id}`] = alreadyNotified;
-      if (alreadyNotified) continue;
-
-      // Find first matching client (sensitive takes priority)
-      let matchedClient = null;
-      let clientType = null;
 
       for (const jiraClient of bug.affectedClients) {
+        // Find which client list it matches
+        let matchedClient = null;
+        let clientType = null;
+
         if (sensitiveSet.has(norm(jiraClient))) {
           matchedClient = jiraClient;
           clientType = 'sensitive';
-          break;
-        }
-      }
-
-      if (!matchedClient) {
-        for (const jiraClient of bug.affectedClients) {
+        } else {
           const rl = redListNorms.find((r) => matchesRedListName(jiraClient, r.normName));
           if (rl) {
             matchedClient = rl.name;
             clientType = 'redlist';
-            break;
           }
         }
-      }
 
-      if (!matchedClient) continue;
+        if (!matchedClient) continue;
+        if (await isAlreadyNotified(bug.id, matchedClient)) continue;
 
-      const text = buildSlackMessage(bug, matchedClient);
-      const { ok: sent, error: slackError } = await sendSlackMessageDebug(text);
-      debug[`slack_${bug.id}`] = sent ? 'ok' : slackError;
-      if (sent) {
-        await recordNotification(bug.id, matchedClient, clientType);
-        notified++;
-        results.push({ bugId: bug.id, client: matchedClient, type: clientType });
+        const text = buildSlackMessage(bug, matchedClient);
+        const sent = await sendSlackMessage(text);
+        if (sent) {
+          await recordNotification(bug.id, matchedClient, clientType);
+          notified++;
+          results.push({ bugId: bug.id, client: matchedClient, type: clientType });
+        }
       }
     }
 
     console.log(`[alert-redlist] checked=${recentBugs.length} notified=${notified}`);
-    return res.status(200).json({ ok: true, checked: recentBugs.length, notified, results, debug });
+    return res.status(200).json({ ok: true, checked: recentBugs.length, notified, results });
   } catch (err) {
     console.error('[alert-redlist]', err);
     return res.status(500).json({ error: err.message });
