@@ -83,9 +83,13 @@ function extractModule(miniAppsField, title) {
 
 // ── Jira ──────────────────────────────────────────────────────────────────────
 
-async function fetchRecentBugs() {
+function getCredentials() {
   const { JIRA_EMAIL, JIRA_TOKEN } = process.env;
-  const credentials = Buffer.from(`${JIRA_EMAIL}:${JIRA_TOKEN}`).toString('base64');
+  return Buffer.from(`${JIRA_EMAIL}:${JIRA_TOKEN}`).toString('base64');
+}
+
+async function fetchRecentBugs() {
+  const credentials = getCredentials();
   const jql = 'issuetype = Bug AND project != HUREP AND updated >= "-15m" ORDER BY updated DESC';
   const fields = 'summary,status,created,customfield_10071,customfield_10046';
   const params = new URLSearchParams({ jql, fields, maxResults: 50 });
@@ -105,10 +109,38 @@ async function fetchRecentBugs() {
     return {
       id: issue.key,
       title: f.summary,
+      created: f.created,
       module: extractModule(miniAppsField, f.summary),
       affectedClients,
     };
   });
+}
+
+// Returns true if jiraClient was actually added to this bug within the cron window
+async function wasClientRecentlyAdded(bugId, jiraClient, bugCreated, cutoffTime) {
+  // New bug: all affected clients count as "just added"
+  if (new Date(bugCreated) >= cutoffTime) return true;
+
+  const credentials = getCredentials();
+  const url = `${JIRA_BASE_URL}/rest/api/3/issue/${bugId}/changelog?orderBy=-created&maxResults=20`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Basic ${credentials}`, Accept: 'application/json' },
+  });
+  if (!res.ok) return false;
+
+  const data = await res.json();
+  const clientLower = jiraClient.toLowerCase();
+
+  for (const history of (data.values || [])) {
+    if (new Date(history.created) < cutoffTime) break; // sorted desc, stop when outside window
+    for (const item of (history.items || [])) {
+      if (item.fieldId !== 'customfield_10046') continue;
+      const toStr = (item.toString || '').toLowerCase();
+      const fromStr = (item.fromString || '').toLowerCase();
+      if (toStr.includes(clientLower) && !fromStr.includes(clientLower)) return true;
+    }
+  }
+  return false;
 }
 
 // ── Google Sheets ─────────────────────────────────────────────────────────────
@@ -184,6 +216,8 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
 
   try {
+    const cutoffTime = new Date(Date.now() - 15 * 60 * 1000);
+
     const [recentBugs, sensitiveClients, redListClients] = await Promise.all([
       fetchRecentBugs(),
       fetchClients('sensitive'),
@@ -217,6 +251,14 @@ export default async function handler(req, res) {
 
         if (!matchedClient) continue;
         if (await isAlreadyNotified(bug.id, matchedClient)) continue;
+
+        // Only notify if the client was actually added recently, not just any update to the bug
+        const recentlyAdded = await wasClientRecentlyAdded(bug.id, jiraClient, bug.created, cutoffTime);
+        if (!recentlyAdded) {
+          // Mark as seen so future updates to this bug don't keep re-checking
+          await recordNotification(bug.id, matchedClient, clientType);
+          continue;
+        }
 
         const text = buildSlackMessage(bug, matchedClient);
         const sent = await sendSlackMessage(text);
