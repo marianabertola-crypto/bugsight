@@ -44,17 +44,25 @@ function norm(s) {
 // "[Inbound] Nuvemshop Brasil" → "nuvemshopbrasil"
 // "[PRODE 2026] FBF"           → "fbf"
 // "XPLOY - February 2025"      → "xploy"
+const RL_NOISE_WORDS = [
+  'new deal', 'new business', 'inbound', 'via calendly', 'migrated deal',
+  'cx referred deal', 'from wp', 'solo comunicacion', 'anos contrato',
+  'referred deal', 'billing partner', 'prode 2026', 'prode2026',
+];
+
 function normForRedList(s) {
   if (!s) return '';
-  return s
+  let v = s
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/\[.*?\]\s*/g, '')
     .replace(/\s*[-–]\s*(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic|january|february|march|april|may|june|july|august|september|october|november|december)\s*\d{4}/gi, '')
     .replace(/\s*[-–]\s*\d{4}/g, '')
     .replace(/[^\x00-\x7F]/g, '')
-    .replace(/[.\s,()°'"\/\-–#@!]/g, '')
-    .toLowerCase()
-    .trim();
+    .toLowerCase();
+  for (const w of RL_NOISE_WORDS) {
+    v = v.replace(new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '');
+  }
+  return v.replace(/[.\s,()°'"\/\-–#@!]/g, '').trim();
 }
 
 function matchesRedListName(jiraClient, redListNorm) {

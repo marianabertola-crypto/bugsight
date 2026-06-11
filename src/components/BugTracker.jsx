@@ -25,17 +25,26 @@ function norm(s) {
   return s?.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim() ?? '';
 }
 
+const RL_NOISE_WORDS = [
+  'new deal', 'new business', 'inbound', 'via calendly', 'migrated deal',
+  'cx referred deal', 'from wp', 'solo comunicacion', 'anos contrato',
+  'referred deal', 'billing partner', 'prode 2026', 'prode2026',
+];
+
 function normForRedList(s) {
   if (!s) return '';
-  return s
+  let v = s
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/\[.*?\]\s*/g, '')                    // strip [bracket] prefixes
-    .replace(/\s*[-–]\s*(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic|january|february|march|april|may|june|july|august|september|october|november|december)\s*\d{4}/gi, '') // strip date suffixes
-    .replace(/\s*[-–]\s*\d{4}/g, '')              // strip year suffixes
-    .replace(/[^\x00-\x7F]/g, '')                 // strip emojis and non-ASCII
-    .replace(/[.\s,()°'"\/\-–#@!]/g, '')          // strip all remaining punctuation + hyphens
-    .toLowerCase()
-    .trim();
+    .replace(/\[.*?\]\s*/g, '')          // strip [bracket] prefixes
+    .replace(/\s*[-–]\s*(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic|january|february|march|april|may|june|july|august|september|october|november|december)\s*\d{4}/gi, '')
+    .replace(/\s*[-–]\s*\d{4}/g, '')    // strip year suffixes
+    .replace(/[^\x00-\x7F]/g, '')       // strip emojis/non-ASCII
+    .toLowerCase();
+  // Strip noise words before removing spaces
+  for (const w of RL_NOISE_WORDS) {
+    v = v.replace(new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '');
+  }
+  return v.replace(/[.\s,()°'"\/\-–#@!]/g, '').trim();
 }
 
 // Strip emojis/non-ASCII from category for display
