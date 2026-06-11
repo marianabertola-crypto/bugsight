@@ -29,12 +29,18 @@ function normForRedList(s) {
   if (!s) return '';
   return s
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/\[.*?\]\s*/g, '')
-    .replace(/\s*[-–]\s*(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic|january|february|march|april|may|june|july|august|september|october|november|december)\s*\d{4}/gi, '')
-    .replace(/\s*[-–]\s*\d{4}/g, '')
-    .replace(/[.\s,()°'"]/g, '')
+    .replace(/\[.*?\]\s*/g, '')                    // strip [bracket] prefixes
+    .replace(/\s*[-–]\s*(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic|january|february|march|april|may|june|july|august|september|october|november|december)\s*\d{4}/gi, '') // strip date suffixes
+    .replace(/\s*[-–]\s*\d{4}/g, '')              // strip year suffixes
+    .replace(/[^\x00-\x7F]/g, '')                 // strip emojis and non-ASCII
+    .replace(/[.\s,()°'"\/\-–#@!]/g, '')          // strip all remaining punctuation + hyphens
     .toLowerCase()
     .trim();
+}
+
+// Strip emojis/non-ASCII from category for display
+function cleanCategory(cat) {
+  return String(cat).replace(/[^\x00-\x7F]/g, '').trim();
 }
 
 function normLoose(s) {
@@ -134,16 +140,16 @@ export default function BugTracker({
   const redListByCategory = useMemo(() => {
     const map = {};
     for (const c of redListClients) {
-      const cat = c.category;
+      const cat = cleanCategory(c.category);
       if (!map[cat]) map[cat] = [];
-      map[cat].push({ name: c.name, normName: normLoose(c.name) });
+      map[cat].push({ name: c.name, normName: normForRedList(c.name) });
     }
     return map;
   }, [redListClients]);
 
   const activeRedList = useMemo(() => {
     if (redListCategory === 'all')
-      return redListClients.map((c) => ({ name: c.name, normName: normLoose(c.name), category: c.category }));
+      return redListClients.map((c) => ({ name: c.name, normName: normForRedList(c.name), category: cleanCategory(c.category) }));
     return (redListByCategory[redListCategory] || []).map((c) => ({ ...c, category: redListCategory }));
   }, [redListClients, redListCategory, redListByCategory]);
 
@@ -178,7 +184,7 @@ export default function BugTracker({
   }, [redListBugs, activeRedList]);
 
   const availableCategories = useMemo(() => {
-    return RED_LIST_CATEGORIES.filter((cat) => (redListByCategory[cat]?.length || 0) > 0);
+    return Object.keys(redListByCategory).filter(cat => cat && (redListByCategory[cat]?.length || 0) > 0).sort();
   }, [redListByCategory]);
 
   // --- Metrics ---
@@ -407,7 +413,7 @@ export default function BugTracker({
                   onClick={() => { setRedListCategory('all'); setExpanded({}); }}
                 >
                   Todos
-                  <span className="sensitive-tab-count">{redListClients.length}</span>
+                  <span className="sensitive-tab-count">{redListBugs.length}</span>
                 </button>
                 {availableCategories.map((cat) => (
                   <button
@@ -416,7 +422,7 @@ export default function BugTracker({
                     onClick={() => { setRedListCategory(cat); setExpanded({}); }}
                   >
                     {cat}
-                    <span className="sensitive-tab-count">{redListByCategory[cat]?.length || 0}</span>
+                    {redListCategory === cat && <span className="sensitive-tab-count">{redListBugs.length}</span>}
                   </button>
                 ))}
               </div>

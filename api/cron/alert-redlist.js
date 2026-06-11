@@ -51,7 +51,8 @@ function normForRedList(s) {
     .replace(/\[.*?\]\s*/g, '')
     .replace(/\s*[-–]\s*(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic|january|february|march|april|may|june|july|august|september|october|november|december)\s*\d{4}/gi, '')
     .replace(/\s*[-–]\s*\d{4}/g, '')
-    .replace(/[.\s,()°'"]/g, '')
+    .replace(/[^\x00-\x7F]/g, '')
+    .replace(/[.\s,()°'"\/\-–#@!]/g, '')
     .toLowerCase()
     .trim();
 }
