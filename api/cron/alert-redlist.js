@@ -125,28 +125,58 @@ async function fetchRecentBugs() {
   });
 }
 
-// Returns true if jiraClient was actually added to this bug within the cron window
+// Parses a Jira changelog field string into a normalized array of client names.
+// Jira separates multi-select values with ", " but we split on any comma just in case.
+function parseClientList(str) {
+  if (!str) return [];
+  return str.split(',').map((v) => v.trim().toLowerCase()).filter(Boolean);
+}
+
+// Returns true if jiraClient was actually added to this bug within the cron window.
+// Handles two cases:
+//   1. Bug created within the window → all affected clients are "new"
+//   2. Existing bug → client must appear in a recent customfield_10046 changelog entry
+//      where it is in toString but not in fromString
 async function wasClientRecentlyAdded(bugId, jiraClient, bugCreated, cutoffTime) {
-  // New bug: all affected clients count as "just added"
   if (new Date(bugCreated) >= cutoffTime) return true;
 
   const credentials = getCredentials();
-  const url = `${JIRA_BASE_URL}/rest/api/3/issue/${bugId}/changelog?orderBy=-created&maxResults=20`;
+  const url = `${JIRA_BASE_URL}/rest/api/3/issue/${bugId}/changelog?orderBy=-created&maxResults=50`;
   const res = await fetch(url, {
     headers: { Authorization: `Basic ${credentials}`, Accept: 'application/json' },
   });
-  if (!res.ok) return false;
+  if (!res.ok) {
+    console.warn(`[changelog] ${bugId}: HTTP ${res.status}`);
+    return false;
+  }
 
   const data = await res.json();
-  const clientLower = jiraClient.toLowerCase();
+  const clientLower = jiraClient.toLowerCase().trim();
 
   for (const history of (data.values || [])) {
-    if (new Date(history.created) < cutoffTime) break; // sorted desc, stop when outside window
+    const historyTime = new Date(history.created);
+    if (historyTime < cutoffTime) break; // sorted desc — everything after is older
+
     for (const item of (history.items || [])) {
-      if (item.fieldId !== 'customfield_10046') continue;
-      const toStr = (item.toString || '').toLowerCase();
-      const fromStr = (item.fromString || '').toLowerCase();
-      if (toStr.includes(clientLower) && !fromStr.includes(clientLower)) return true;
+      // Accept by fieldId OR by display name (safety fallback)
+      const isAffectedField =
+        item.fieldId === 'customfield_10046' ||
+        (item.field || '').toLowerCase().includes('affected client');
+      if (!isAffectedField) continue;
+
+      const toList = parseClientList(item.toString);
+      const fromList = parseClientList(item.fromString);
+
+      const inTo = toList.some((v) => v === clientLower || v.includes(clientLower) || clientLower.includes(v));
+      const inFrom = fromList.some((v) => v === clientLower || v.includes(clientLower) || clientLower.includes(v));
+
+      console.log(
+        `[changelog] ${bugId} @ ${history.created}: field="${item.field}" fieldId="${item.fieldId}"` +
+        ` client="${jiraClient}" inTo=${inTo} inFrom=${inFrom}` +
+        ` | to=[${toList.join(' | ')}] from=[${fromList.join(' | ')}]`
+      );
+
+      if (inTo && !inFrom) return true;
     }
   }
   return false;
