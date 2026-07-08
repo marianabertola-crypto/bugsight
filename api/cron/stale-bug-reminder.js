@@ -8,7 +8,7 @@
 
 const JIRA_BASE_URL = 'https://humand.atlassian.net';
 const SLACK_CHANNEL = 'product-etas-test';
-const STAGNANT_DAYS = 7;
+const STAGNANT_DAYS = 1; // TEST: revertir a 7 antes de deployar a producción
 
 const MODULES = {
   Acknowledgements: { pm: 'Delfina Pipan', slackId: 'U067SMZ18KB' },
