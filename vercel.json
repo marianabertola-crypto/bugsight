@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/alert-redlist",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/stale-bug-reminder",
+      "schedule": "0 15 * * *"
     }
   ]
 }
