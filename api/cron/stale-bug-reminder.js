@@ -126,9 +126,13 @@ async function fetchStaleBugs() {
   });
 }
 
-// Returns the timestamp when the current status was last set (from Jira changelog).
-// Falls back to the bug's created date if no status change found.
-async function getLastStatusChangedAt(bugId, bugCreated) {
+// Returns the "stagnation start" timestamp: MAX(lastStatusChange, firstSensitiveClientAdded).
+// - lastStatusChange: most recent status change (or bugCreated if never changed)
+// - firstSensitiveClientAdded: earliest time any of sensitiveClientsLower appeared in the
+//   affectedClients field (or bugCreated if the client was there from creation)
+// Using the MAX ensures: if a sensitive client was added AFTER the last status change,
+// the 7-day clock starts from when the client was added, not the older status change.
+async function getStagnationStart(bugId, bugCreated, sensitiveClientsLower) {
   const credentials = getCredentials();
   const url = `${JIRA_BASE_URL}/rest/api/3/issue/${bugId}/changelog?orderBy=-created&maxResults=100`;
   const res = await fetch(url, {
@@ -137,15 +141,42 @@ async function getLastStatusChangedAt(bugId, bugCreated) {
   if (!res.ok) return new Date(bugCreated);
 
   const data = await res.json();
-  for (const history of (data.values || [])) {
+  const entries = data.values || [];
+
+  let lastStatusChange = null;   // first match in desc order = most recent
+  let firstSensitiveAdded = null; // last match in desc order = oldest / earliest
+
+  for (const history of entries) {
+    const historyTime = new Date(history.created);
+
     for (const item of (history.items || [])) {
-      if (item.field === 'status' || item.fieldId === 'status') {
-        return new Date(history.created);
+      // Most recent status change (entries are desc — take first hit only)
+      if ((item.field === 'status' || item.fieldId === 'status') && !lastStatusChange) {
+        lastStatusChange = historyTime;
+      }
+
+      // Sensitive client additions — keep updating to get the EARLIEST one
+      const isAffectedField =
+        item.fieldId === 'customfield_10046' ||
+        (item.field || '').toLowerCase().includes('affected client');
+      if (isAffectedField) {
+        const toList = (item.toString || '').split(',').map((v) => v.trim().toLowerCase());
+        const fromList = (item.fromString || '').split(',').map((v) => v.trim().toLowerCase());
+        const addedSensitive = sensitiveClientsLower.some(
+          (c) => toList.some((v) => v === c || v.includes(c)) &&
+                 !fromList.some((v) => v === c || v.includes(c))
+        );
+        if (addedSensitive) firstSensitiveAdded = historyTime; // overwrite → ends up as earliest
       }
     }
   }
-  // No status change found in changelog — bug has been in its original status since creation
-  return new Date(bugCreated);
+
+  const createdDate = new Date(bugCreated);
+  const statusStart = lastStatusChange ?? createdDate;
+  const sensitiveStart = firstSensitiveAdded ?? createdDate;
+
+  // Stagnation period starts from whichever happened most recently
+  return statusStart > sensitiveStart ? statusStart : sensitiveStart;
 }
 
 // ── Google Sheets ─────────────────────────────────────────────────────────────
@@ -220,7 +251,7 @@ function buildReminderMessage(bug, matchedClients, daysSinceChange) {
     `*Estado actual:* ${bug.status} — sin cambios hace *${daysSinceChange} días*`,
     `*Cliente${matchedClients.length > 1 ? 's' : ''}:* ${clientList}`,
     `*Módulo:* ${bug.module} — PM: ${pmMention}`,
-    `¿Podés compartir una actualización? :pray::skin-tone-2:`,
+    `¿Podrías compartirnos una actualización de esta card, por favor? :pray::skin-tone-2:`,
   ].join('\n');
 }
 
@@ -260,14 +291,15 @@ export default async function handler(req, res) {
       }
       if (!matchedClients.length) continue;
 
-      // Get exact timestamp of last status change (used as reminder key)
-      const lastStatusChange = await getLastStatusChangedAt(bug.id, bug.created);
-      const daysSinceChange = Math.floor((Date.now() - lastStatusChange.getTime()) / (1000 * 60 * 60 * 24));
+      // Stagnation start = MAX(last status change, first sensitive client added)
+      const sensitiveClientsLower = matchedClients.map((c) => c.toLowerCase().trim());
+      const stagnationStart = await getStagnationStart(bug.id, bug.created, sensitiveClientsLower);
+      const daysSinceChange = Math.floor((Date.now() - stagnationStart.getTime()) / (1000 * 60 * 60 * 24));
 
-      // Double-check: must be at least STAGNANT_DAYS (JQL may have timing slack)
+      // Must be at least STAGNANT_DAYS from stagnation start
       if (daysSinceChange < STAGNANT_DAYS) continue;
 
-      if (await isAlreadyReminded(bug.id, lastStatusChange)) {
+      if (await isAlreadyReminded(bug.id, stagnationStart)) {
         console.log(`[stale-reminder] ${bug.id}: already reminded for this period`);
         continue;
       }
@@ -275,7 +307,7 @@ export default async function handler(req, res) {
       const text = buildReminderMessage(bug, matchedClients, daysSinceChange);
       const sent = await sendSlackMessage(text);
       if (sent) {
-        await recordReminder(bug.id, lastStatusChange, bug.status);
+        await recordReminder(bug.id, stagnationStart, bug.status);
         reminded++;
         results.push({ bugId: bug.id, clients: matchedClients, days: daysSinceChange });
         console.log(`[stale-reminder] reminded: ${bug.id} (${daysSinceChange}d) clients=${matchedClients.join(', ')}`);
