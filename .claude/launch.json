@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "scratchpad-static",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "4173", "--directory", "/private/tmp/claude-501/-Users-malubertola-bugsight/15123620-ddc5-4238-a4ff-b3aa00d11127/scratchpad"],
+      "port": 4173
+    }
+  ]
+}
