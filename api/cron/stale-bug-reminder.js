@@ -273,6 +273,17 @@ export default async function handler(req, res) {
       normName: normForRedList(c.name),
     }));
 
+    // DEBUG
+    const debug = {
+      sensitiveCount: sensitiveClients.length,
+      redListCount: redListClients.length,
+      staleBugsWithClients: staleBugs.filter((b) => b.affectedClients?.length).length,
+      sampleClients: staleBugs.filter((b) => b.affectedClients?.length).slice(0, 5).map((b) => ({
+        id: b.id,
+        affectedClients: b.affectedClients,
+      })),
+    };
+
     let reminded = 0;
     const results = [];
 
@@ -315,7 +326,7 @@ export default async function handler(req, res) {
     }
 
     console.log(`[stale-reminder] checked=${staleBugs.length} reminded=${reminded}`);
-    return res.status(200).json({ ok: true, checked: staleBugs.length, reminded, results });
+    return res.status(200).json({ ok: true, checked: staleBugs.length, reminded, results, debug });
   } catch (err) {
     console.error('[stale-reminder]', err);
     return res.status(500).json({ error: err.message });
