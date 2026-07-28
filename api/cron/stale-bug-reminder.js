@@ -277,10 +277,11 @@ export default async function handler(req, res) {
     const debug = {
       sensitiveCount: sensitiveClients.length,
       redListCount: redListClients.length,
+      sampleSensitiveNames: sensitiveClients.slice(0, 10).map((c) => ({ raw: c.name, norm: norm(c.name) })),
       staleBugsWithClients: staleBugs.filter((b) => b.affectedClients?.length).length,
-      sampleClients: staleBugs.filter((b) => b.affectedClients?.length).slice(0, 5).map((b) => ({
+      sampleBugClients: staleBugs.filter((b) => b.affectedClients?.length).slice(0, 3).map((b) => ({
         id: b.id,
-        affectedClients: b.affectedClients,
+        affectedClients: b.affectedClients.map((c) => ({ raw: c, norm: norm(c) })),
       })),
     };
 
