@@ -97,33 +97,44 @@ function getCredentials() {
   return Buffer.from(`${JIRA_EMAIL}:${JIRA_TOKEN}`).toString('base64');
 }
 
-// Fetch all open bugs whose status hasn't changed in 7+ days
+function mapIssue(issue) {
+  const f = issue.fields;
+  const affectedClients = Array.isArray(f.customfield_10046)
+    ? f.customfield_10046.map((c) => (typeof c === 'string' ? c : c?.value)).filter(Boolean)
+    : [];
+  return {
+    id: issue.key,
+    title: f.summary,
+    status: f.status?.name || 'Unknown',
+    created: f.created,
+    module: extractModule(f.customfield_10071, f.summary),
+    affectedClients,
+  };
+}
+
+// Fetch ALL open bugs whose status hasn't changed in STAGNANT_DAYS, with pagination
 async function fetchStaleBugs() {
   const credentials = getCredentials();
-  const jql = `issuetype = Bug AND project != HUREP AND status not in (Closed, Released, Done) AND status changed before "-${STAGNANT_DAYS}d" ORDER BY updated ASC`;
+  const jql = `issuetype = Bug AND project != HUREP AND status not in (Closed, Released, Done) AND status changed before "-${STAGNANT_DAYS}d" ORDER BY created ASC`;
   const fields = 'summary,status,created,customfield_10071,customfield_10046';
-  const params = new URLSearchParams({ jql, fields, maxResults: 100 });
+  const pageSize = 100;
+  const allIssues = [];
+  let startAt = 0;
 
-  const res = await fetch(`${JIRA_BASE_URL}/rest/api/3/search/jql?${params}`, {
-    headers: { Authorization: `Basic ${credentials}`, Accept: 'application/json' },
-  });
-  if (!res.ok) throw new Error(`Jira search error: ${res.status}`);
-  const data = await res.json();
+  while (true) {
+    const params = new URLSearchParams({ jql, fields, maxResults: pageSize, startAt });
+    const res = await fetch(`${JIRA_BASE_URL}/rest/api/3/search/jql?${params}`, {
+      headers: { Authorization: `Basic ${credentials}`, Accept: 'application/json' },
+    });
+    if (!res.ok) throw new Error(`Jira search error: ${res.status}`);
+    const data = await res.json();
+    const issues = data.issues || [];
+    allIssues.push(...issues);
+    if (startAt + issues.length >= (data.total || 0) || issues.length < pageSize) break;
+    startAt += pageSize;
+  }
 
-  return (data.issues || []).map((issue) => {
-    const f = issue.fields;
-    const affectedClients = Array.isArray(f.customfield_10046)
-      ? f.customfield_10046.map((c) => (typeof c === 'string' ? c : c?.value)).filter(Boolean)
-      : [];
-    return {
-      id: issue.key,
-      title: f.summary,
-      status: f.status?.name || 'Unknown',
-      created: f.created,
-      module: extractModule(f.customfield_10071, f.summary),
-      affectedClients,
-    };
-  });
+  return allIssues.map(mapIssue);
 }
 
 // Returns the "stagnation start" timestamp: MAX(lastStatusChange, firstSensitiveClientAdded).
@@ -160,11 +171,11 @@ async function getStagnationStart(bugId, bugCreated, sensitiveClientsLower) {
         item.fieldId === 'customfield_10046' ||
         (item.field || '').toLowerCase().includes('affected client');
       if (isAffectedField) {
-        const toList = (item.toString || '').split(',').map((v) => v.trim().toLowerCase());
-        const fromList = (item.fromString || '').split(',').map((v) => v.trim().toLowerCase());
-        const addedSensitive = sensitiveClientsLower.some(
-          (c) => toList.some((v) => v === c || v.includes(c)) &&
-                 !fromList.some((v) => v === c || v.includes(c))
+        const toList = (item.toString || '').split(',').map((v) => normForRedList(v));
+        const fromList = (item.fromString || '').split(',').map((v) => normForRedList(v));
+        const clientNorms = sensitiveClientsLower.map((c) => normForRedList(c));
+        const addedSensitive = clientNorms.some(
+          (c) => toList.includes(c) && !fromList.includes(c)
         );
         if (addedSensitive) firstSensitiveAdded = historyTime; // overwrite → ends up as earliest
       }
@@ -267,11 +278,15 @@ export default async function handler(req, res) {
       fetchClients('redlist'),
     ]);
 
-    const sensitiveSet = new Set(sensitiveClients.map((c) => norm(c.name)));
-    const redListNorms = redListClients.map((c) => ({
-      name: c.name,
-      normName: normForRedList(c.name),
-    }));
+    // Use normForRedList for both lists: strips noise words, brackets, date suffixes.
+    // Sheet names are HubSpot deal names ("Elevva - New Deal") while Jira uses compact
+    // identifiers ("Elevva") — normForRedList bridges that gap for both lists.
+    const sensitiveNorms = sensitiveClients
+      .map((c) => ({ name: c.name, normName: normForRedList(c.name) }))
+      .filter((c) => c.normName.length > 1); // skip header rows / empty
+    const redListNorms = redListClients
+      .map((c) => ({ name: c.name, normName: normForRedList(c.name) }))
+      .filter((c) => c.normName.length > 1);
 
     // DEBUG
     const debug = {
@@ -294,10 +309,12 @@ export default async function handler(req, res) {
       // Collect all sensitive/redlist clients on this bug
       const matchedClients = [];
       for (const jiraClient of bug.affectedClients) {
-        if (sensitiveSet.has(norm(jiraClient))) {
+        const jiraNorm = normForRedList(jiraClient);
+        const sens = sensitiveNorms.find((s) => s.normName === jiraNorm);
+        if (sens) {
           matchedClients.push(jiraClient);
         } else {
-          const rl = redListNorms.find((r) => matchesRedListName(jiraClient, r.normName));
+          const rl = redListNorms.find((r) => r.normName === jiraNorm);
           if (rl) matchedClients.push(rl.name);
         }
       }
