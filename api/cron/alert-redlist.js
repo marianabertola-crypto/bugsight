@@ -153,18 +153,18 @@ async function wasClientRecentlyAdded(bugId, jiraClient, bugCreated, cutoffTime)
   const data = await res.json();
   const clientLower = jiraClient.toLowerCase().trim();
 
-  // TEMP DEBUG — remove once the "Mojo not detected as recently added" issue is diagnosed.
+  // TEMP DEBUG — remove once the ordering issue is confirmed/fixed.
   console.log(
     `[changelog-debug] ${bugId}: fetched ${data.values?.length ?? 0} history entries,` +
-    ` cutoffTime=${cutoffTime.toISOString()}`
+    ` cutoffTime=${cutoffTime.toISOString()}, order=[${(data.values || []).map((h) => h.created).join(', ')}]`
   );
 
+  // Don't assume any particular order from the API — filter instead of breaking early,
+  // since relying on a "sorted desc" assumption caused recent entries to be skipped
+  // whenever an older entry happened to come first in the response.
   for (const history of (data.values || [])) {
     const historyTime = new Date(history.created);
-    if (historyTime < cutoffTime) {
-      console.log(`[changelog-debug] ${bugId}: stopping, ${history.created} is older than cutoff`);
-      break; // sorted desc — everything after is older
-    }
+    if (historyTime < cutoffTime) continue;
 
     for (const item of (history.items || [])) {
       // TEMP DEBUG — log every field touched in-window, not just the ones we think match.
