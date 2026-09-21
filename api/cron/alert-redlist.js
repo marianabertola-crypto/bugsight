@@ -320,13 +320,13 @@ export default async function handler(req, res) {
         console.log(`[debug] bug=${bug.id} client="${matchedClient}" alreadyNotified=${alreadyNotified}`);
         if (alreadyNotified) continue;
 
-        // Only notify if the client was actually added recently, not just any update to the bug
+        // Only notify if the client was actually added recently, not just any update to the bug.
+        // Deliberately NOT recording anything here when this is false: Jira's changelog can take
+        // a few seconds to index a field change, so a "not recently added" result this run might
+        // just be too early. Leaving it unrecorded lets the next run (2 min later) re-check for
+        // free instead of permanently and silently dropping a real notification.
         const recentlyAdded = await wasClientRecentlyAdded(bug.id, jiraClient, bug.created, cutoffTime);
-        if (!recentlyAdded) {
-          // Mark as seen so future updates to this bug don't keep re-checking
-          await recordNotification(bug.id, matchedClient, clientType);
-          continue;
-        }
+        if (!recentlyAdded) continue;
 
         const text = buildSlackMessage(bug, matchedClient);
         const sent = await sendSlackMessage(text);
