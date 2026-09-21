@@ -266,6 +266,10 @@ export default async function handler(req, res) {
     const sensitiveSet = new Set(sensitiveClients.map((c) => norm(c.name)));
     const redListNorms = redListClients.map((c) => ({ name: c.name, normName: normForRedList(c.name) }));
 
+    // TEMP DEBUG — remove once the Tenaris/CSBM-6298 matching issue is diagnosed.
+    console.log(`[debug] sensitive list (${sensitiveClients.length}):`, sensitiveClients.map((c) => c.name));
+    console.log(`[debug] red list (${redListClients.length}):`, redListClients.map((c) => c.name));
+
     let notified = 0;
     const results = [];
 
@@ -287,6 +291,12 @@ export default async function handler(req, res) {
             clientType = 'redlist';
           }
         }
+
+        // TEMP DEBUG — remove once the Tenaris/CSBM-6298 matching issue is diagnosed.
+        console.log(
+          `[debug] bug=${bug.id} client="${jiraClient}" normSensitive="${norm(jiraClient)}"` +
+          ` normRedList="${normForRedList(jiraClient)}" matchedClient=${matchedClient} clientType=${clientType}`
+        );
 
         if (!matchedClient) continue;
         if (await isAlreadyNotified(bug.id, matchedClient)) continue;
