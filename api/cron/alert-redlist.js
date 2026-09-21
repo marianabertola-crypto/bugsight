@@ -1,4 +1,4 @@
-// Vercel Cron Job — runs every 10 minutes
+// Vercel Cron Job — runs every 2 minutes
 // Detects new/updated bugs for sensitive/red list clients and notifies Slack
 // Required env vars: JIRA_EMAIL, JIRA_TOKEN, SENSITIVE_CLIENTS_URL,
 //                    SLACK_BOT_TOKEN, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
@@ -99,7 +99,7 @@ function getCredentials() {
 
 async function fetchRecentBugs() {
   const credentials = getCredentials();
-  const jql = 'issuetype = Bug AND project != HUREP AND updated >= "-15m" ORDER BY updated DESC';
+  const jql = 'issuetype = Bug AND project != HUREP AND updated >= "-5m" ORDER BY updated DESC';
   const fields = 'summary,status,created,customfield_10071,customfield_10046';
   const params = new URLSearchParams({ jql, fields, maxResults: 50 });
 
@@ -255,7 +255,7 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
 
   try {
-    const cutoffTime = new Date(Date.now() - 15 * 60 * 1000);
+    const cutoffTime = new Date(Date.now() - 5 * 60 * 1000);
 
     const [recentBugs, sensitiveClients, redListClients] = await Promise.all([
       fetchRecentBugs(),

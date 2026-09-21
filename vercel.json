@@ -6,7 +6,7 @@
   "crons": [
     {
       "path": "/api/cron/alert-redlist",
-      "schedule": "*/10 * * * *"
+      "schedule": "*/2 * * * *"
     },
     {
       "path": "/api/cron/stale-bug-reminder",
