@@ -153,11 +153,26 @@ async function wasClientRecentlyAdded(bugId, jiraClient, bugCreated, cutoffTime)
   const data = await res.json();
   const clientLower = jiraClient.toLowerCase().trim();
 
+  // TEMP DEBUG — remove once the "Mojo not detected as recently added" issue is diagnosed.
+  console.log(
+    `[changelog-debug] ${bugId}: fetched ${data.values?.length ?? 0} history entries,` +
+    ` cutoffTime=${cutoffTime.toISOString()}`
+  );
+
   for (const history of (data.values || [])) {
     const historyTime = new Date(history.created);
-    if (historyTime < cutoffTime) break; // sorted desc — everything after is older
+    if (historyTime < cutoffTime) {
+      console.log(`[changelog-debug] ${bugId}: stopping, ${history.created} is older than cutoff`);
+      break; // sorted desc — everything after is older
+    }
 
     for (const item of (history.items || [])) {
+      // TEMP DEBUG — log every field touched in-window, not just the ones we think match.
+      console.log(
+        `[changelog-debug] ${bugId} @ ${history.created}: field="${item.field}" fieldId="${item.fieldId}"` +
+        ` fieldtype="${item.fieldtype}" toString="${item.toString}" fromString="${item.fromString}"`
+      );
+
       // Accept by fieldId OR by display name (safety fallback)
       const isAffectedField =
         item.fieldId === 'customfield_10046' ||
@@ -299,7 +314,11 @@ export default async function handler(req, res) {
         );
 
         if (!matchedClient) continue;
-        if (await isAlreadyNotified(bug.id, matchedClient)) continue;
+
+        const alreadyNotified = await isAlreadyNotified(bug.id, matchedClient);
+        // TEMP DEBUG — remove once the "Mojo not detected as recently added" issue is diagnosed.
+        console.log(`[debug] bug=${bug.id} client="${matchedClient}" alreadyNotified=${alreadyNotified}`);
+        if (alreadyNotified) continue;
 
         // Only notify if the client was actually added recently, not just any update to the bug
         const recentlyAdded = await wasClientRecentlyAdded(bug.id, jiraClient, bug.created, cutoffTime);
