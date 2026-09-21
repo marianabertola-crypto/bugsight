@@ -153,12 +153,6 @@ async function wasClientRecentlyAdded(bugId, jiraClient, bugCreated, cutoffTime)
   const data = await res.json();
   const clientLower = jiraClient.toLowerCase().trim();
 
-  // TEMP DEBUG — remove once the ordering issue is confirmed/fixed.
-  console.log(
-    `[changelog-debug] ${bugId}: fetched ${data.values?.length ?? 0} history entries,` +
-    ` cutoffTime=${cutoffTime.toISOString()}, order=[${(data.values || []).map((h) => h.created).join(', ')}]`
-  );
-
   // Don't assume any particular order from the API — filter instead of breaking early,
   // since relying on a "sorted desc" assumption caused recent entries to be skipped
   // whenever an older entry happened to come first in the response.
@@ -167,12 +161,6 @@ async function wasClientRecentlyAdded(bugId, jiraClient, bugCreated, cutoffTime)
     if (historyTime < cutoffTime) continue;
 
     for (const item of (history.items || [])) {
-      // TEMP DEBUG — log every field touched in-window, not just the ones we think match.
-      console.log(
-        `[changelog-debug] ${bugId} @ ${history.created}: field="${item.field}" fieldId="${item.fieldId}"` +
-        ` fieldtype="${item.fieldtype}" toString="${item.toString}" fromString="${item.fromString}"`
-      );
-
       // Accept by fieldId OR by display name (safety fallback)
       const isAffectedField =
         item.fieldId === 'customfield_10046' ||
@@ -281,10 +269,6 @@ export default async function handler(req, res) {
     const sensitiveSet = new Set(sensitiveClients.map((c) => norm(c.name)));
     const redListNorms = redListClients.map((c) => ({ name: c.name, normName: normForRedList(c.name) }));
 
-    // TEMP DEBUG — remove once the Tenaris/CSBM-6298 matching issue is diagnosed.
-    console.log(`[debug] sensitive list (${sensitiveClients.length}):`, sensitiveClients.map((c) => c.name));
-    console.log(`[debug] red list (${redListClients.length}):`, redListClients.map((c) => c.name));
-
     let notified = 0;
     const results = [];
 
@@ -307,18 +291,8 @@ export default async function handler(req, res) {
           }
         }
 
-        // TEMP DEBUG — remove once the Tenaris/CSBM-6298 matching issue is diagnosed.
-        console.log(
-          `[debug] bug=${bug.id} client="${jiraClient}" normSensitive="${norm(jiraClient)}"` +
-          ` normRedList="${normForRedList(jiraClient)}" matchedClient=${matchedClient} clientType=${clientType}`
-        );
-
         if (!matchedClient) continue;
-
-        const alreadyNotified = await isAlreadyNotified(bug.id, matchedClient);
-        // TEMP DEBUG — remove once the "Mojo not detected as recently added" issue is diagnosed.
-        console.log(`[debug] bug=${bug.id} client="${matchedClient}" alreadyNotified=${alreadyNotified}`);
-        if (alreadyNotified) continue;
+        if (await isAlreadyNotified(bug.id, matchedClient)) continue;
 
         // Only notify if the client was actually added recently, not just any update to the bug.
         // Deliberately NOT recording anything here when this is false: Jira's changelog can take
