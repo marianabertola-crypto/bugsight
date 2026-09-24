@@ -13,14 +13,14 @@ const STATUS_MAP = {
 };
 
 const MODULE_ALIASES = {
-  px: 'People Exp',
+  px: 'People Experience',
   'perf rev': 'Perf Review',
   'perf review': 'Perf Review',
-  'service mgmt': 'Service Mgmt',
-  sm: 'Service Mgmt',
-  notif: 'Notification Center',
-  'notificacion center': 'Notification Center',
-  notification: 'Notification Center',
+  'service mgmt': 'Service Management',
+  sm: 'Service Management',
+  notif: 'Notifications',
+  'notificacion center': 'Notifications',
+  notification: 'Notifications',
   'org chart': 'Org Chart',
   'time off': 'Time Off',
   'time tracking': 'Time Tracking',
@@ -32,17 +32,17 @@ const MODULE_ALIASES = {
   'chats 2': 'Chats',
   feed: 'Feed',
   profile: 'Profile',
-  users: 'Users',
-  schedules: 'Schedules',
+  users: 'User Management',
+  schedules: 'Work Schedules',
   surveys: 'Surveys',
   goals: 'Goals',
   groups: 'Groups',
   events: 'Events',
   forms: 'Forms',
   files: 'Files',
-  sammy: 'Sammy',
+  sammy: 'Sammy 2.0',
   learning: 'Learning',
-  trainings: 'Trainings',
+  // "trainings" intentionally has no mapping — the Trainings module is deprecated.
   onboarding: 'Onboarding',
 };
 
