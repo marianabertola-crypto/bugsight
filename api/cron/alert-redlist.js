@@ -6,32 +6,84 @@
 const JIRA_BASE_URL = 'https://humand.atlassian.net';
 const SLACK_CHANNEL = 'product-etas-test';
 
+// Source: "Mini Apps ownership by Squad" (Notion) cross-checked against Jira's
+// "Mini App" field, with Slack member IDs confirmed by the team (2026-09-24).
 const MODULES = {
-  Acknowledgements: { pm: 'Delfina Pipan', slackId: 'U067SMZ18KB' },
-  Anniversaries: { pm: 'Barbara Aliprandi', slackId: 'U05TC8QBX39' },
-  Automations: { pm: 'Martin Ciccioli', slackId: 'U02SEQUGJ78' },
-  ATS: { pm: 'Manuela Cavallo', slackId: 'U08N6R7G03U' },
+  'AI Agents': { pm: 'Mariana Szewach', slackId: 'U0B92EHJ43T' },
+  Audience: { pm: 'Agustina Ini', slackId: 'U05TRT1BS78' },
   Auth: { pm: 'Agustina Ini', slackId: 'U05TRT1BS78' },
-  Calls: { pm: 'Fermin Castro Madero', slackId: 'U06RUNGDN0Y' },
+  Automations: { pm: 'Martin Ciccioli', slackId: 'U02SEQUGJ78' },
+  Calls: { pm: 'Juan Ignacio Rios', slackId: 'U08RLMMBUPJ' },
+  'Career path': { pm: 'Cristian Baltazar', slackId: 'U05ASJS4F1S' },
+  Celebrations: { pm: 'Franco Virzi', slackId: 'U0ABYN2U5K6' },
   ChatBots: { pm: 'Cristian Baltazar', slackId: 'U05ASJS4F1S' },
-  Chats: { pm: 'Luciano Paradiso', slackId: 'U05FFDZ4CQH' },
-  Events: { pm: 'Carolina Arditi', slackId: 'U05R2440NN5' },
+  Chats: { pm: 'Nicolas Cordes', slackId: 'U05L0GPA5CZ' },
+  Competencies: { pm: 'Cristian Baltazar', slackId: 'U05ASJS4F1S' },
+  'Core Forms': { pm: 'Martin Ciccioli', slackId: 'U02SEQUGJ78' },
+  'Discover Humand': { pm: 'Victoria Castagnaro', slackId: 'U0AHKGU20AE' },
+  Documents: { pm: 'Luciano Paradiso', slackId: 'U05FFDZ4CQH' },
+  Events: { pm: 'Juan Ignacio Rios', slackId: 'U08RLMMBUPJ' },
   Feed: { pm: 'Barbara Aliprandi', slackId: 'U05TC8QBX39' },
+  'File Assets': { pm: 'Martin Ciccioli', slackId: 'U02SEQUGJ78' },
+  Files: { pm: 'Luciano Paradiso', slackId: 'U05FFDZ4CQH' },
   Forms: { pm: 'Carolina Arditi', slackId: 'U05R2440NN5' },
   Goals: { pm: 'Cristian Baltazar', slackId: 'U05ASJS4F1S' },
   Groups: { pm: 'Barbara Aliprandi', slackId: 'U05TC8QBX39' },
+  Insights: { pm: 'Ari Karzovinik', slackId: 'U0ANQM4CAR4' },
+  Integrations: { pm: null, slackId: null },
+  Acknowledgements: { pm: 'Franco Virzi', slackId: 'U0ABYN2U5K6' },
   Learning: { pm: 'Delfina Pipan', slackId: 'U067SMZ18KB' },
+  'Legajo digital | HRIS': { pm: 'Camila Pacin', slackId: 'U0AG20S72BT' },
   Libraries: { pm: 'Delfina Pipan', slackId: 'U067SMZ18KB' },
-  Livestream: { pm: 'Fermin Castro Madero', slackId: 'U06RUNGDN0Y' },
+  Livestream: { pm: 'Juan Ignacio Rios', slackId: 'U08RLMMBUPJ' },
   Marketplace: { pm: 'Barbara Aliprandi', slackId: 'U05TC8QBX39' },
+  Microloans: { pm: 'Victoria Castagnaro', slackId: 'U0AHKGU20AE' },
   News: { pm: 'Barbara Aliprandi', slackId: 'U05TC8QBX39' },
-  'Notification Center': { pm: 'Cristian Baltazar', slackId: 'U05ASJS4F1S' },
+  Notifications: { pm: null, slackId: null },
+  Oli: { pm: 'Mariana Szewach', slackId: 'U0B92EHJ43T' },
   Onboarding: { pm: 'Juan Diego Alcocer', slackId: 'U06T3HRA1EZ' },
+  Ops: { pm: null, slackId: null },
   'Org Chart': { pm: 'Delfina Pipan', slackId: 'U067SMZ18KB' },
-  Recognitions: { pm: 'Barbara Aliprandi', slackId: 'U05TC8QBX39' },
-  Trainings: { pm: 'Delfina Pipan', slackId: 'U067SMZ18KB' },
-  Users: { pm: 'Agustina Ini', slackId: 'U05TRT1BS78' },
-  Workflows: { pm: 'Martin Ciccioli', slackId: 'U02SEQUGJ78' },
+  'Payroll ARG': { pm: 'Nieves Rimoldi', slackId: 'U0BQ1GG0JJC' },
+  'Payroll MX': { pm: 'Daniela Cativa', slackId: 'U0B11ALTT5M' },
+  'People Experience': { pm: 'Leandro', slackId: 'U0C00BXVAQJ' },
+  'Perf Review': { pm: 'Cristian Baltazar', slackId: 'U05ASJS4F1S' },
+  Prode: { pm: 'Leandro', slackId: 'U0C00BXVAQJ' },
+  Profile: { pm: 'Camila Pacin', slackId: 'U0AG20S72BT' },
+  ATS: { pm: 'Siro Gallo', slackId: 'U0B8Z32RAJ2' },
+  Referrals: { pm: 'Luciano Paradiso', slackId: 'U05FFDZ4CQH' },
+  'Region/Sites': { pm: 'Augusto Ferrer', slackId: 'U063ZECFYE5' },
+  'Roles/Perm': { pm: 'Agustina Ini', slackId: 'U05TRT1BS78' },
+  'Sammy 2.0': { pm: 'Mariana Szewach', slackId: 'U0B92EHJ43T' },
+  Search: { pm: 'Franco Virzi', slackId: 'U0ABYN2U5K6' },
+  Security: { pm: 'Agustina Ini', slackId: 'U05TRT1BS78' },
+  'Service Management': { pm: 'Carolina Arditi', slackId: 'U05R2440NN5' },
+  'Shift Management': { pm: 'Stephanie Silberman', slackId: 'U0AR8BX443F' },
+  'Sockets Service': { pm: 'Nicolas Cordes', slackId: 'U05L0GPA5CZ' },
+  Surveys: { pm: 'Carolina Arditi', slackId: 'U05R2440NN5' },
+  'Task Manager': { pm: 'Juan Diego Alcocer', slackId: 'U06T3HRA1EZ' },
+  'Time Off': { pm: 'Tiziana Rassow', slackId: 'U0B66BU8B5G' },
+  'Time Tracking': { pm: 'Augusto Ferrer', slackId: 'U063ZECFYE5' },
+  'User Management': { pm: 'Camila Pacin', slackId: 'U0AG20S72BT' },
+  Widgets: { pm: null, slackId: null },
+  'Work Schedules': { pm: 'Stephanie Silberman', slackId: 'U0AR8BX443F' },
+  Workflows: { pm: 'Carolina Arditi', slackId: 'U05R2440NN5' },
+  General: { pm: null, slackId: null },
+};
+
+// Support team — maps the Jira reporter's email to their Slack member ID,
+// used to @mention whoever reported the bug in the Slack alert.
+const REPORTERS = {
+  'nello@humand.co': 'U05MNPKG66P',
+  'luchi@humand.co': 'U06BRU68LDD',
+  'bernie@humand.co': 'U07EJRRDMUK',
+  'eze@humand.co': 'U02QHCKJNBA',
+  'mariana.bertola@humand.co': 'U07P91XUC6A',
+  'tania.sorchini@humand.co': 'U0AB3EH8NUC',
+  'luis.bulacio@humand.co': 'U08R0S1QQ03',
+  'maureen.lomez@humand.co': 'U0ABRAK31K4',
+  'federico.abal@humand.co': 'U09ME6DSC30',
+  'agustin.benitez@humand.co': 'U0BDFM9RF62',
 };
 
 // ── Normalization ─────────────────────────────────────────────────────────────
@@ -99,7 +151,7 @@ function getCredentials() {
 async function fetchRecentBugs() {
   const credentials = getCredentials();
   const jql = 'issuetype = Bug AND project != HUREP AND updated >= "-5m" ORDER BY updated DESC';
-  const fields = 'summary,status,created,customfield_10071,customfield_10046';
+  const fields = 'summary,status,created,customfield_10071,customfield_10046,reporter';
   const params = new URLSearchParams({ jql, fields, maxResults: 50 });
 
   const res = await fetch(`${JIRA_BASE_URL}/rest/api/3/search/jql?${params}`, {
@@ -120,6 +172,8 @@ async function fetchRecentBugs() {
       created: f.created,
       module: extractModule(miniAppsField, f.summary),
       affectedClients,
+      reporterEmail: f.reporter?.emailAddress || null,
+      reporterName: f.reporter?.displayName || null,
     };
   });
 }
@@ -240,12 +294,17 @@ function buildSlackMessage(bug, clientName) {
   const pmMention = moduleInfo.slackId
     ? `<@${moduleInfo.slackId}>`
     : moduleInfo.pm || 'Sin PM asignado';
+  const reporterSlackId = bug.reporterEmail ? REPORTERS[bug.reporterEmail] : null;
+  const reporterMention = reporterSlackId
+    ? `<@${reporterSlackId}>`
+    : bug.reporterName || bug.reporterEmail || 'Sin datos';
   const jiraUrl = `${JIRA_BASE_URL}/browse/${bug.id}`;
   return [
     `:rotating_light: Un cliente en churn risk nos reportó este error:`,
     `*Cliente:* ${clientName}`,
     `*Bug:* <${jiraUrl}|${bug.id} ${bug.title}>`,
     `*Módulo:* ${bug.module} — PM: ${pmMention}`,
+    `*Reportado por:* ${reporterMention}`,
     `¿Podríamos darle prioridad, por favor? :pray::skin-tone-2:`,
     `Muchas gracias!`,
   ].join('\n');
