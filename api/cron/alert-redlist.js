@@ -396,7 +396,11 @@ export default async function handler(req, res) {
 
     // Both lists are matched with the same cleaned-up comparison (see normForRedList above),
     // so CRM noise like "[Migrated deal]" or "S.A." doesn't need to match Jira's exact text.
-    const sensitiveNorms = sensitiveClients.map((c) => ({ name: c.name, normName: normForRedList(c.name) }));
+    // The Sheet also lists clients that are no longer sensitive (currently_sensitive: false) —
+    // only alert for the ones that ARE currently flagged, not historical/former ones.
+    const sensitiveNorms = sensitiveClients
+      .filter((c) => c.currently_sensitive)
+      .map((c) => ({ name: c.name, normName: normForRedList(c.name) }));
     const redListNorms = redListClients.map((c) => ({ name: c.name, normName: normForRedList(c.name) }));
 
     let notified = 0;
