@@ -6,6 +6,11 @@
 const JIRA_BASE_URL = 'https://humand.atlassian.net';
 const SLACK_CHANNEL = 'product-etas-test';
 
+// Cards auto-generated from a Slack thread are reported by this bot account, not by
+// the person who actually asked for it — that person is instead mentioned inside the
+// description as "Solicitado por: @Name". See findRequestedByMention() below.
+const BOT_REPORTER_EMAIL = 'hu-agent@humand.co';
+
 // Source: "Mini Apps ownership by Squad" (Notion) cross-checked against Jira's
 // "Mini App" field, with Slack member IDs confirmed by the team (2026-09-24).
 const MODULES = {
@@ -148,10 +153,56 @@ function getCredentials() {
   return Buffer.from(`${JIRA_EMAIL}:${JIRA_TOKEN}`).toString('base64');
 }
 
+// Flattens an Atlassian Document Format (ADF) node into plain text, resolving
+// @mentions to their "@Display Name" text.
+function adfNodeToText(node) {
+  if (!node) return '';
+  if (node.type === 'text') return node.text || '';
+  if (node.type === 'mention') return node.attrs?.text || '';
+  if (node.content) return node.content.map(adfNodeToText).join('');
+  return '';
+}
+
+// Cards auto-created from a Slack thread (reporter = BOT_REPORTER_EMAIL) put the real
+// requester in the description as an ADF paragraph like "Solicitado por: @Name" — find
+// that paragraph and return the @mention inside it (Jira account id + display name).
+function findRequestedByMention(description) {
+  const paragraphs = [];
+  (function walk(node) {
+    if (!node) return;
+    if (node.type === 'paragraph' && node.content) paragraphs.push(node);
+    if (node.content) node.content.forEach(walk);
+  })(description);
+
+  for (const p of paragraphs) {
+    const text = p.content.map(adfNodeToText).join('');
+    if (!/solicitado por/i.test(text)) continue;
+    const mention = p.content.find((n) => n.type === 'mention');
+    if (mention?.attrs?.id) {
+      return { accountId: mention.attrs.id, displayName: (mention.attrs.text || '').replace(/^@/, '') };
+    }
+  }
+  return null;
+}
+
+async function getUserEmailByAccountId(accountId) {
+  const credentials = getCredentials();
+  try {
+    const res = await fetch(`${JIRA_BASE_URL}/rest/api/3/user?accountId=${encodeURIComponent(accountId)}`, {
+      headers: { Authorization: `Basic ${credentials}`, Accept: 'application/json' },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.emailAddress || null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchRecentBugs() {
   const credentials = getCredentials();
   const jql = 'issuetype = Bug AND project != HUREP AND updated >= "-5m" ORDER BY updated DESC';
-  const fields = 'summary,status,created,customfield_10071,customfield_10046,reporter';
+  const fields = 'summary,status,created,customfield_10071,customfield_10046,reporter,description';
   const params = new URLSearchParams({ jql, fields, maxResults: 50 });
 
   const res = await fetch(`${JIRA_BASE_URL}/rest/api/3/search/jql?${params}`, {
@@ -160,22 +211,34 @@ async function fetchRecentBugs() {
   if (!res.ok) throw new Error(`Jira error: ${res.status}`);
   const data = await res.json();
 
-  return (data.issues || []).map((issue) => {
+  return Promise.all((data.issues || []).map(async (issue) => {
     const f = issue.fields;
     const miniAppsField = f.customfield_10071;
     const affectedClients = Array.isArray(f.customfield_10046)
       ? f.customfield_10046.map((c) => (typeof c === 'string' ? c : c?.value)).filter(Boolean)
       : [];
+
+    let reporterEmail = f.reporter?.emailAddress || null;
+    let reporterName = f.reporter?.displayName || null;
+
+    if (reporterEmail === BOT_REPORTER_EMAIL) {
+      const requestedBy = findRequestedByMention(f.description);
+      if (requestedBy) {
+        reporterName = requestedBy.displayName;
+        reporterEmail = await getUserEmailByAccountId(requestedBy.accountId);
+      }
+    }
+
     return {
       id: issue.key,
       title: f.summary,
       created: f.created,
       module: extractModule(miniAppsField, f.summary),
       affectedClients,
-      reporterEmail: f.reporter?.emailAddress || null,
-      reporterName: f.reporter?.displayName || null,
+      reporterEmail,
+      reporterName,
     };
-  });
+  }));
 }
 
 // Parses a Jira changelog field string into a normalized array of client names.
