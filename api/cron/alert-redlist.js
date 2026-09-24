@@ -289,6 +289,13 @@ async function sendSlackMessage(text) {
   return data.ok;
 }
 
+// Slack's mrkdwn link syntax (<url|label>) breaks if the label contains a literal
+// "&", "<" or ">" — e.g. a bug title like "false >100% weight error" prematurely
+// closes the link. These characters must be escaped in any text embedded that way.
+function escapeSlackText(text) {
+  return String(text ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function buildSlackMessage(bug, clientName) {
   const moduleInfo = MODULES[bug.module] || {};
   const pmMention = moduleInfo.slackId
@@ -297,12 +304,12 @@ function buildSlackMessage(bug, clientName) {
   const reporterSlackId = bug.reporterEmail ? REPORTERS[bug.reporterEmail] : null;
   const reporterMention = reporterSlackId
     ? `<@${reporterSlackId}>`
-    : bug.reporterName || bug.reporterEmail || 'Sin datos';
+    : escapeSlackText(bug.reporterName || bug.reporterEmail || 'Sin datos');
   const jiraUrl = `${JIRA_BASE_URL}/browse/${bug.id}`;
   return [
     `:rotating_light: Un cliente en churn risk nos reportó este error:`,
-    `*Cliente:* ${clientName}`,
-    `*Bug:* <${jiraUrl}|${bug.id} ${bug.title}>`,
+    `*Cliente:* ${escapeSlackText(clientName)}`,
+    `*Bug:* <${jiraUrl}|${bug.id} ${escapeSlackText(bug.title)}>`,
     `*Módulo:* ${bug.module} — PM: ${pmMention}`,
     `*Reportado por:* ${reporterMention}`,
     `¿Podríamos darle prioridad, por favor? :pray::skin-tone-2:`,
