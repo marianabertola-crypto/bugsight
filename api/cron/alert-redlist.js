@@ -36,18 +36,17 @@ const MODULES = {
 
 // ── Normalization ─────────────────────────────────────────────────────────────
 
-function norm(s) {
-  return s?.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim() ?? '';
-}
-
-// Strips [bracket] prefixes, date suffixes and spaces for exact matching
+// Strips [bracket] prefixes, date suffixes, common CRM noise and spaces for exact matching.
+// Shared by both the sensitive-clients list and the red list — a client's name should match
+// regardless of which extra CRM text (deal stage, legal suffix, etc.) got tacked onto it.
 // "[Inbound] Nuvemshop Brasil" → "nuvemshopbrasil"
 // "[PRODE 2026] FBF"           → "fbf"
 // "XPLOY - February 2025"      → "xploy"
+// "DISBYTE S.A."               → "disbyte"
 const RL_NOISE_WORDS = [
   'new deal', 'new business', 'inbound', 'via calendly', 'migrated deal',
   'cx referred deal', 'from wp', 'solo comunicacion', 'anos contrato',
-  'referred deal', 'billing partner', 'prode 2026', 'prode2026',
+  'referred deal', 'billing partner', 'prode 2026', 'prode2026', 's.a.',
 ];
 
 function normForRedList(s) {
@@ -266,7 +265,9 @@ export default async function handler(req, res) {
       fetchClients('redlist'),
     ]);
 
-    const sensitiveSet = new Set(sensitiveClients.map((c) => norm(c.name)));
+    // Both lists are matched with the same cleaned-up comparison (see normForRedList above),
+    // so CRM noise like "[Migrated deal]" or "S.A." doesn't need to match Jira's exact text.
+    const sensitiveNorms = sensitiveClients.map((c) => ({ name: c.name, normName: normForRedList(c.name) }));
     const redListNorms = redListClients.map((c) => ({ name: c.name, normName: normForRedList(c.name) }));
 
     let notified = 0;
@@ -280,8 +281,9 @@ export default async function handler(req, res) {
         let matchedClient = null;
         let clientType = null;
 
-        if (sensitiveSet.has(norm(jiraClient))) {
-          matchedClient = jiraClient;
+        const sens = sensitiveNorms.find((s) => matchesRedListName(jiraClient, s.normName));
+        if (sens) {
+          matchedClient = sens.name;
           clientType = 'sensitive';
         } else {
           const rl = redListNorms.find((r) => matchesRedListName(jiraClient, r.normName));
