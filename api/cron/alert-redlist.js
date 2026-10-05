@@ -4,7 +4,7 @@
 //                    SLACK_BOT_TOKEN, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
 
 const JIRA_BASE_URL = 'https://humand.atlassian.net';
-const SLACK_CHANNEL = 'product-etas-test';
+const SLACK_CHANNEL = 'client-red-list';
 
 // Cards auto-generated from a Slack thread are reported by this bot account, not by
 // the person who actually asked for it — that person is instead mentioned inside the
