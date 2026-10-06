@@ -39,7 +39,7 @@ export const MODULES = {
   'Org Chart': { pm: 'Delfina Pipan', slackId: 'U067SMZ18KB' },
   'Payroll ARG': { pm: 'Nieves Rimoldi', slackId: 'U0BQ1GG0JJC' },
   'Payroll MX': { pm: 'Daniela Cativa', slackId: 'U0B11ALTT5M' },
-  'People Experience': { pm: 'Leandro', slackId: 'U0C00BXVAQJ' },
+  'People Exp': { pm: 'Leandro', slackId: 'U0C00BXVAQJ' },
   'Perf Review': { pm: 'Cristian Baltazar', slackId: 'U05ASJS4F1S' },
   Prode: { pm: 'Leandro', slackId: 'U0C00BXVAQJ' },
   Profile: { pm: 'Camila Pacin', slackId: 'U0AG20S72BT' },

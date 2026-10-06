@@ -13,7 +13,7 @@ const STATUS_MAP = {
 };
 
 const MODULE_ALIASES = {
-  px: 'People Experience',
+  px: 'People Exp',
   'perf rev': 'Perf Review',
   'perf review': 'Perf Review',
   'service mgmt': 'Service Management',
